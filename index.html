@@ -30,7 +30,7 @@
   body.paused .paused-flag{display:inline-block}
 
   /* ===== Sân khấu chữ chạy (toàn màn hình) ===== */
-  .stage{flex:1;position:relative;overflow:hidden;display:flex;align-items:center}
+  .stage{flex:1;position:relative;overflow:hidden;display:flex;align-items:center;contain:layout style paint}
   .track{position:absolute;top:50%;left:0;display:flex;gap:7vw;align-items:center;white-space:nowrap;
          font-weight:600;will-change:transform;transform:translate3d(100vw,-50%,0);line-height:1.45;
          font-size:22px;color:#7dfbd4}
@@ -184,6 +184,19 @@ let db=null, data=[], ktMap={}, ctrl={}, dataRev=0, builtKey="";
 let x=0, raf=null, paused=false, lastTs=0;
 const track=$("track"), stage=$("stage");
 
+/* ===== Thông số tinh chỉnh cảm ứng & tốc độ (chỉnh ở đây nếu cần) =====
+   SWIPE_SENS : độ nhạy khi kéo tay (>1 = vuốt 1 đoạn ngắn nhưng lướt xa hơn, "nhanh tay" hơn)
+   FLICK_MULT : hệ số khuếch đại quán tính khi thả tay sau khi vuốt mạnh
+   FRICTION   : ma sát giảm tốc quán tính mỗi giây (0.05-0.2, càng nhỏ trôi càng xa/mượt)
+   RESUME_MS  : thời gian chờ sau khi ngừng chạm để tự chạy lại
+   SPEED_BOOST: hệ số nhân thêm vào tốc độ tự chạy chữ (ctrl.speed từ admin) */
+const SWIPE_SENS  = 1.6;
+const FLICK_MULT  = 1.3;
+const FRICTION    = 0.12;
+const RESUME_MS   = 900;
+const SPEED_BOOST = 1.25;
+let momV = 0; // vận tốc quán tính hiện tại (px/s), 0 = không trôi
+
 /* ================================================================
    ĐĂNG NHẬP — mật khẩu ideco@2026, nhớ đăng nhập bằng localStorage
    (lưu hash chứ không lưu mật khẩu thô; đổi PW_SALT để buộc đăng nhập lại)
@@ -316,8 +329,20 @@ function applyStyle(){
 function loopFn(ts){
   if(!lastTs) lastTs=ts;
   const dt=Math.min((ts-lastTs)/1000,.1); lastTs=ts;
-  if(!paused){
-    x -= (ctrl.speed||110)*dt;
+  if(momV){
+    /* Đang trôi theo quán tính sau khi thả tay: giảm tốc mượt dần rồi tự chạy lại */
+    x += momV*dt;
+    const min=-track.scrollWidth, max=window.innerWidth;
+    if(x<min){x=min; momV=0;} if(x>max){x=max; momV=0;}
+    momV *= Math.pow(FRICTION, dt);
+    if(Math.abs(momV) < 15){
+      momV = 0;
+      clearTimeout(resumeTimer);
+      resumeTimer=setTimeout(()=>setPaused(false), RESUME_MS);
+    }
+    track.style.transform="translate3d("+x+"px,-50%,0)";
+  } else if(!paused){
+    x -= (ctrl.speed||110)*SPEED_BOOST*dt;
     if(x < -track.scrollWidth) x = window.innerWidth;
     track.style.transform="translate3d("+x+"px,-50%,0)";
   }
@@ -330,6 +355,8 @@ function start(){
 function stop(){
   if(raf){ cancelAnimationFrame(raf); raf=null; }
   builtKey="";
+  momV=0;
+  clearTimeout(resumeTimer);
   setPaused(false);
 }
 function setPaused(v){
@@ -337,17 +364,20 @@ function setPaused(v){
   document.body.classList.toggle("paused", v);
 }
 
-/* ===== Tương tác chạm: giữ = dừng, vuốt = tua, double-tap = khai thác ===== */
+/* ===== Tương tác chạm: giữ = dừng, vuốt = tua (nhạy hơn + có quán tính), double-tap = khai thác ===== */
 let drag=null, resumeTimer=null;
 stage.addEventListener("pointerdown", e=>{
   if(e.target.closest("a.tel")) return;           // bấm nút gọi thì không can thiệp
-  drag={x0:e.clientX,t0:x,moved:false};
+  try{ stage.setPointerCapture(e.pointerId); }catch(err){}
+  momV=0;                                          // chạm tay là huỷ quán tính đang trôi (nếu có)
+  drag={x0:e.clientX,t0:x,moved:false,lastX:e.clientX,lastT:performance.now(),v:0};
   clearTimeout(resumeTimer);
   setPaused(true);
 });
 window.addEventListener("pointermove", e=>{
   if(!drag) return;
-  const dx=e.clientX-drag.x0;
+  const now=performance.now();
+  const dx=(e.clientX-drag.x0)*SWIPE_SENS;         // nhân hệ số nhạy → vuốt 1 đoạn ngắn lướt xa/nhanh hơn
   if(Math.abs(dx)>6) drag.moved=true;
   if(drag.moved){
     x=drag.t0+dx;
@@ -355,13 +385,26 @@ window.addEventListener("pointermove", e=>{
     if(x<min)x=min; if(x>max)x=max;
     track.style.transform="translate3d("+x+"px,-50%,0)";
   }
+  const dt=now-drag.lastT;                         // ước lượng vận tốc tay để tạo quán tính khi thả
+  if(dt>0){
+    const instV=(e.clientX-drag.lastX)/dt*1000;     // px/giây
+    drag.v = drag.v*0.75 + instV*0.25;              // làm mượt vận tốc (giảm nhiễu cảm ứng)
+  }
+  drag.lastX=e.clientX; drag.lastT=now;
 });
-window.addEventListener("pointerup", ()=>{
+function endDrag(){
+  if(!drag) return;
+  const wasMoved=drag.moved, v=drag.v*SWIPE_SENS;
   drag=null;
   clearTimeout(resumeTimer);
-  resumeTimer=setTimeout(()=>setPaused(false), 1800);  // thả tay 1.8s tự chạy tiếp
-});
-window.addEventListener("pointercancel", ()=>{ drag=null; resumeTimer=setTimeout(()=>setPaused(false),1800); });
+  if(wasMoved && Math.abs(v)>60){
+    momV = v * FLICK_MULT;                          // vuốt mạnh → trôi tiếp mượt theo quán tính rồi mới tự chạy lại
+  }else{
+    resumeTimer=setTimeout(()=>setPaused(false), RESUME_MS);
+  }
+}
+window.addEventListener("pointerup", endDrag);
+window.addEventListener("pointercancel", endDrag);
 
 /* Bánh xe chuột (khi mở trên PC) */
 stage.addEventListener("wheel", e=>{
