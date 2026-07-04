@@ -487,7 +487,39 @@ function app2Html(){
   const bin = atob(APP2_B64);
   const bytes = new Uint8Array(bin.length);
   for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
-  return new TextDecoder("utf-8").decode(bytes);   // giữ nguyên tiếng Việt UTF-8
+  let doc = new TextDecoder("utf-8").decode(bytes);   // giữ nguyên tiếng Việt UTF-8
+
+  /* ===== TIÊM NÂNG CẤP "BẤM GỌI" vào app QLKH (không sửa code gốc) =====
+     1) Ô số điện thoại (.phone / text dạng SĐT VN) → biến thành nút gọi, gạch chân, màu xanh
+     2) Bấm → điều hướng tel: qua window.top (đảm bảo hoạt động trong iframe trên iOS/Android) */
+  const CALL_PATCH = `
+<style>
+  td.phone{color:#1565c0 !important;font-weight:700;cursor:pointer;text-decoration:underline;
+           text-underline-offset:3px;-webkit-tap-highlight-color:rgba(21,101,192,.15)}
+  td.phone:not(:empty)::before{content:"📞 "}
+  td.phone:active{opacity:.6}
+</style>
+<scr`+`ipt>
+(function(){
+  function normPhone(t){
+    const d = String(t||"").replace(/[^\d+]/g,"");
+    const digits = d.replace(/\D/g,"");
+    if(digits.length < 9 || digits.length > 12) return null;   // không phải SĐT hợp lệ
+    return d.startsWith("+") ? d : d;
+  }
+  document.addEventListener("click", function(e){
+    const cell = e.target.closest("td.phone");
+    if(!cell) return;
+    const p = normPhone(cell.textContent);
+    if(!p) return;
+    e.preventDefault();
+    if(navigator.vibrate) navigator.vibrate(25);
+    try{ window.top.location.href = "tel:" + p; }        // gọi từ trang cha → chắc chắn bật app gọi
+    catch(err){ window.location.href = "tel:" + p; }     // dự phòng
+  }, true);
+})();
+</scr`+`ipt>`;
+  return doc.replace("</body>", CALL_PATCH + "</body>");
 }
 
 function switchTab(which){
