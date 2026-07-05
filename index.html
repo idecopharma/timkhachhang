@@ -52,6 +52,14 @@
   .chip .nt{display:none;background:#ffb02e;color:#3a2600;font-size:.6em;font-weight:800;
             border-radius:.5em;padding:.15em .6em;letter-spacing:.06em}
   .chip.kt .nt{display:inline-block}
+  /* 🔴 ĐỎ = Kết nối được */
+  .chip.ok{border-color:#ff5a4e;background:rgba(230,55,45,.28)}
+  .chip.ok .ten{color:#ffb3ad}
+  .chip.ok .nt{display:inline-block;background:#e6372d;color:#fff}
+  /* ⚪ XÁM = Từ chối (sẵn sàng xoá trên app quản trị) */
+  .chip.tc{border-color:#8b979e;background:rgba(130,140,146,.28);opacity:.82}
+  .chip.tc .ten{color:#c3ccd1;text-decoration:line-through;text-decoration-thickness:2px}
+  .chip.tc .nt{display:inline-block;background:#6e7a81;color:#fff}
   .fsep{font-weight:800;opacity:.85;font-size:.9em}
   .pfx{font-weight:800;font-size:.95em}
 
@@ -120,6 +128,27 @@
   .kt-card .kt-ok:active{transform:scale(.95)}
   .kt-card .kt-no{background:rgba(255,255,255,.14);color:#fff}
   .kt-card .kt-no:active{transform:scale(.95)}
+
+  /* ===== Popup TRẠNG THÁI KẾT NỐI (double-tap khung đã khai thác) ===== */
+  .st-card{width:100%;max-width:420px;background:#0e3a42;border:2px solid #ffb02e;border-radius:20px;
+           padding:18px 16px;box-shadow:0 12px 40px rgba(0,0,0,.6);animation:cardUp .22s cubic-bezier(.2,.9,.3,1.2)}
+  .st-card .st-t{color:#ffd58a;font-size:14px;font-weight:800;letter-spacing:.03em;margin-bottom:4px;
+                 white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .st-card .st-s{color:rgba(255,255,255,.6);font-size:11.5px;margin-bottom:13px}
+  .st-card .st-main{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+  .st-card .st-main button{border:none;border-radius:13px;cursor:pointer;font-family:inherit;
+        font-weight:800;font-size:15.5px;padding:15px 10px;line-height:1.25;color:#fff;
+        display:flex;flex-direction:column;align-items:center;gap:4px}
+  .st-card .st-main button:active{transform:scale(.95)}
+  .st-card .st-main .st-ic{font-size:22px;line-height:1}
+  .st-card .st-ok{background:linear-gradient(150deg,#e6372d,#b71c1c);box-shadow:0 4px 14px rgba(230,55,45,.4)}
+  .st-card .st-tc{background:linear-gradient(150deg,#78848b,#565f65);box-shadow:0 4px 14px rgba(0,0,0,.3)}
+  .st-card .st-sub{display:flex;gap:9px}
+  .st-card .st-sub button{flex:1;border:none;border-radius:11px;cursor:pointer;font-family:inherit;
+        font-weight:700;font-size:13px;padding:10px;line-height:1;background:rgba(255,255,255,.12);color:#fff}
+  .st-card .st-sub button:active{transform:scale(.95)}
+  .st-card .st-sub .st-undo{color:#ffd58a}
+  .st-card .st-hint{margin-top:10px;font-size:10.5px;line-height:1.55;color:rgba(255,255,255,.5);text-align:center}
 
   /* Logo + dải thông điệp động viên */
   .top-logo{width:30px;height:30px;border-radius:8px;background:#fff;object-fit:contain;padding:2px;flex:none;box-shadow:0 2px 6px rgba(0,0,0,.3)}
@@ -205,7 +234,8 @@
 <div class="bot">
   <span>👆 Chạm giữ: dừng</span>
   <span>↔️ Vuốt: tua nhanh</span>
-  <span>👆👆 Chạm 2 lần khung: nhập tên → Khai thác</span>
+  <span>👆👆 Khung trắng: nhập tên → 🟡 Khai thác</span>
+  <span>👆👆 Khung vàng: 🔴 Kết nối được / ⚪ Từ chối</span>
   <span>📞 Bấm số: gọi ngay</span>
 </div>
 
@@ -233,6 +263,24 @@
       <button class="kt-ok" id="ktOk" type="button">✔ Lưu</button>
       <button class="kt-no" id="ktNo" type="button">✕</button>
     </div>
+  </div>
+</div>
+
+<!-- Popup chọn KẾT QUẢ LIÊN HỆ (khung đã khai thác - màu vàng) -->
+<div class="kt-ovl" id="stOvl">
+  <div class="st-card">
+    <div class="st-t" id="stTitle">📞 Kết quả liên hệ</div>
+    <div class="st-s" id="stSub">Chọn kết quả sau khi liên hệ khách hàng</div>
+    <div class="st-main">
+      <button class="st-ok" id="stOk" type="button"><span class="st-ic">✔</span>Kết nối được</button>
+      <button class="st-tc" id="stTc" type="button"><span class="st-ic">✕</span>Từ chối</button>
+    </div>
+    <div class="st-sub">
+      <button class="st-undo" id="stUndo" type="button">↺ Hoàn tác khai thác</button>
+      <button id="stClose" type="button">Đóng</button>
+    </div>
+    <div class="st-hint">🔴 Kết nối được → khung chuyển ĐỎ · ⚪ Từ chối → khung chuyển XÁM
+      và trên app quản trị dòng KH sẽ tự được tích chọn, sẵn sàng xoá</div>
   </div>
 </div>
 
@@ -344,9 +392,17 @@ if(isAuthed()) unlock();
 else setTimeout(()=>$("pwInput").focus(), 200);
 
 function updateCounts(){
-  const kt = data.filter(r=>ktMap[r.id]).length;
+  let kt=0, ok=0, tc=0;
+  data.forEach(r=>{
+    const v = ktMap[r.id];
+    if(!v) return;
+    const st = ktStatus(v);
+    if(st==="ok") ok++;
+    else if(st==="tuchoi") tc++;
+    else kt++;
+  });
   $("cAll").textContent = data.length + " KH";
-  $("cKT").textContent = "✔ " + kt;
+  $("cKT").textContent = "🟡" + kt + " 🔴" + ok + " ⚪" + tc;
 }
 function updateStandby(){
   const on = !(ctrl.running && data.length);
@@ -395,14 +451,22 @@ function ktName(v){
   if(typeof v==="object" && v.name) return String(v.name);
   return "";
 }
+/* Trạng thái kết nối: "" = mới khai thác (VÀNG), "ok" = kết nối được (ĐỎ),
+   "tuchoi" = từ chối (XÁM — app quản trị tự tích chọn dòng để xoá) */
+function ktStatus(v){
+  return (v && typeof v==="object" && v.status) ? String(v.status) : "";
+}
 function restyle(){
   track.querySelectorAll(".chip").forEach(c=>{
-    const v = ktMap[c.dataset.id];
-    c.classList.toggle("kt", !!v);
+    const v = ktMap[c.dataset.id], st = ktStatus(v);
+    c.classList.toggle("kt", !!v && !st);
+    c.classList.toggle("ok", st==="ok");
+    c.classList.toggle("tc", st==="tuchoi");
     const nt = c.querySelector(".nt");
     if(nt){
       const n = ktName(v);
-      nt.textContent = n ? (n+" - KHAI THÁC") : "KHAI THÁC";
+      const label = st==="ok" ? "✔ KẾT NỐI ĐƯỢC" : st==="tuchoi" ? "✕ TỪ CHỐI" : "KHAI THÁC";
+      nt.textContent = n ? (n+" - "+label) : label;
     }
   });
 }
@@ -510,28 +574,49 @@ stage.addEventListener("wheel", e=>{
 },{passive:false});
 
 /* ================================================================
-   KHAI THÁC — double-tap khung khách hàng:
-   - Chưa khai thác → mở popup nhập tên nhân viên → Lưu {name, at}
-   - Đã khai thác   → gỡ đánh dấu ngay, trở về ban đầu
-   Cấu trúc dữ liệu trùng với script nhúng → đồng bộ 2 chiều
+   KHAI THÁC — double-tap khung khách hàng (luồng trạng thái v2):
+   - Khung TRẮNG (chưa khai thác) → popup nhập tên NV → Lưu {name,at} → VÀNG
+   - Khung VÀNG (đã khai thác)    → popup chọn kết quả liên hệ:
+        ✔ Kết nối được → status:"ok"     → ĐỎ
+        ✕ Từ chối      → status:"tuchoi" → XÁM + app quản trị tự tích
+          chọn dòng KH đó, sẵn sàng bấm Xoá
+        ↺ Hoàn tác     → xoá node        → về trắng
+   - Khung ĐỎ/XÁM → mở lại popup để đổi trạng thái nếu bấm nhầm
+   Cấu trúc dữ liệu trùng với script nhúng & app quản lý → đồng bộ 2 chiều
 ================================================================ */
 const LS_STAFF = "ideco_tickerKH_staffName";   // nhớ tên nhập lần trước
 const ktOvl=$("ktOvl"), ktInp=$("ktName"), ktTitle=$("ktTitle");
-let ktTarget=null;                              // id khách hàng đang mở popup
+const stOvl=$("stOvl"), stTitle=$("stTitle"), stSub=$("stSub");
+let ktTarget=null;                              // id khách hàng đang mở popup (cả 2 popup)
 
+function chipTen(chip){
+  const el = chip ? chip.querySelector(".ten") : null;
+  return el ? el.textContent : "";
+}
 function openKtPop(id, chip){
   ktTarget=id;
-  const tenEl = chip.querySelector(".ten");
-  ktTitle.textContent = "🔖 Khai thác: " + (tenEl ? tenEl.textContent : ("KH #"+id));
+  ktTitle.textContent = "🔖 Khai thác: " + (chipTen(chip) || ("KH #"+id));
   try{ ktInp.value = localStorage.getItem(LS_STAFF) || ""; }catch(e){ ktInp.value=""; }
+  stOvl.classList.remove("show");
   ktOvl.classList.add("show");
   clearTimeout(resumeTimer);
   setPaused(true); momV=0;                      // dừng ticker khi đang nhập tên
   setTimeout(()=>{ ktInp.focus(); ktInp.select(); }, 60);
 }
+function openStPop(id, chip){
+  ktTarget=id;
+  const nv = ktName(ktMap[id]);
+  stTitle.textContent = "📞 " + (chipTen(chip) || ("KH #"+id));
+  stSub.textContent = (nv ? "🧑‍💼 " + nv + " khai thác — " : "") + "chọn kết quả liên hệ";
+  ktOvl.classList.remove("show");
+  stOvl.classList.add("show");
+  clearTimeout(resumeTimer);
+  setPaused(true); momV=0;                      // dừng ticker khi đang chọn
+}
 function closeKtPop(){
   ktTarget=null;
   ktOvl.classList.remove("show");
+  stOvl.classList.remove("show");
   ktInp.blur();
   clearTimeout(resumeTimer);
   resumeTimer=setTimeout(()=>setPaused(false), RESUME_MS);   // chạy lại sau khi đóng
@@ -545,9 +630,22 @@ function saveKtPop(){
       name: name,
       at: firebase.database.ServerValue.TIMESTAMP
     });
-    toast("✔ "+name+" - Khai thác");
+    toast("🟡 "+name+" - Khai thác");
   }
   if(navigator.vibrate) navigator.vibrate(35);
+  closeKtPop();
+}
+/* Ghi trạng thái kết quả liên hệ — GIỮ NGUYÊN tên NV đã khai thác */
+function setKtStatus(status){
+  if(!db || ktTarget==null){ closeKtPop(); return; }
+  const v = ktMap[ktTarget];
+  const obj = { status: status, statusAt: firebase.database.ServerValue.TIMESTAMP };
+  const n = ktName(v); if(n) obj.name = n;
+  if(v && typeof v==="object" && v.at) obj.at = v.at;
+  db.ref(FB_PATH+"/khaithac/"+ktTarget).set(obj);
+  toast(status==="ok" ? "🔴 "+(n?n+" - ":"")+"KẾT NỐI ĐƯỢC"
+                      : "⚪ TỪ CHỐI — app quản trị đã tích chọn KH này để xoá");
+  if(navigator.vibrate) navigator.vibrate(status==="ok" ? [30,40,30] : 45);
   closeKtPop();
 }
 $("ktOk").addEventListener("click", saveKtPop);
@@ -559,16 +657,28 @@ ktInp.addEventListener("keydown", e=>{
 ktOvl.addEventListener("pointerdown", e=>{     // chạm nền tối bên ngoài thẻ → đóng
   if(e.target===ktOvl) closeKtPop();
 });
+$("stOk").addEventListener("click", ()=>setKtStatus("ok"));
+$("stTc").addEventListener("click", ()=>setKtStatus("tuchoi"));
+$("stUndo").addEventListener("click", ()=>{
+  if(db && ktTarget!=null){
+    db.ref(FB_PATH+"/khaithac/"+ktTarget).remove();
+    toast("↺ Đã hoàn tác — KH trở về chưa khai thác");
+    if(navigator.vibrate) navigator.vibrate(35);
+  }
+  closeKtPop();
+});
+$("stClose").addEventListener("click", closeKtPop);
+stOvl.addEventListener("pointerdown", e=>{     // chạm nền tối bên ngoài thẻ → đóng
+  if(e.target===stOvl) closeKtPop();
+});
 
 function chipActivate(chip){
   if(!db) return;
   const id=chip.dataset.id;
   if(ktMap[id]){
-    db.ref(FB_PATH+"/khaithac/"+id).remove();   // gỡ khai thác → về ban đầu
-    if(navigator.vibrate) navigator.vibrate(35);
-    toast("↩️ Đã bỏ khai thác");
+    openStPop(id, chip);                         // đã khai thác (vàng/đỏ/xám) → chọn kết quả liên hệ
   }else{
-    openKtPop(id, chip);                         // nhập tên nhân viên
+    openKtPop(id, chip);                         // chưa khai thác → nhập tên nhân viên
   }
 }
 /* Double-tap: vì stage.setPointerCapture() chuyển hướng mọi pointerup/click
