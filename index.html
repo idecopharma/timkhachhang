@@ -97,6 +97,30 @@
   .btn-lock{border:none;background:rgba(255,255,255,.12);color:rgba(255,255,255,.75);border-radius:7px;
             width:26px;height:22px;font-size:11px;cursor:pointer;flex:none}
 
+  /* ===== Popup nhập tên nhân viên khai thác ===== */
+  .kt-ovl{position:fixed;inset:0;z-index:180;display:none;align-items:flex-end;justify-content:center;
+          background:rgba(0,0,0,.55);backdrop-filter:blur(3px);padding:0 14px calc(20px + var(--safe-b))}
+  .kt-ovl.show{display:flex;animation:ovlIn .18s ease-out}
+  @keyframes ovlIn{from{opacity:0}to{opacity:1}}
+  .kt-card{width:100%;max-width:420px;background:#0e3a42;border:2px solid #ffb02e;border-radius:20px;
+           padding:18px 16px;box-shadow:0 12px 40px rgba(0,0,0,.6);animation:cardUp .22s cubic-bezier(.2,.9,.3,1.2)}
+  @keyframes cardUp{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+  .kt-card .kt-t{color:#ffd58a;font-size:14px;font-weight:800;letter-spacing:.03em;margin-bottom:4px;
+                 white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kt-card .kt-s{color:rgba(255,255,255,.6);font-size:11.5px;margin-bottom:12px}
+  .kt-card .kt-row{display:flex;gap:9px}
+  .kt-card input{flex:1;min-width:0;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.35);
+                 border-radius:11px;color:#fff;font-size:16px;font-weight:600;padding:11px 12px;
+                 outline:none;font-family:inherit}
+  .kt-card input:focus{border-color:#ffb02e;background:rgba(255,255,255,.16)}
+  .kt-card input::placeholder{color:rgba(255,255,255,.4);font-weight:400}
+  .kt-card .kt-ok,.kt-card .kt-no{border:none;border-radius:11px;cursor:pointer;font-family:inherit;
+                 font-weight:800;font-size:15px;padding:11px 15px;line-height:1;flex:none}
+  .kt-card .kt-ok{background:#ffb02e;color:#3a2600}
+  .kt-card .kt-ok:active{transform:scale(.95)}
+  .kt-card .kt-no{background:rgba(255,255,255,.14);color:#fff}
+  .kt-card .kt-no:active{transform:scale(.95)}
+
   /* Logo + dải thông điệp động viên */
   .top-logo{width:30px;height:30px;border-radius:8px;background:#fff;object-fit:contain;padding:2px;flex:none;box-shadow:0 2px 6px rgba(0,0,0,.3)}
   .lk-logo{width:76px;height:76px;border-radius:18px;background:#fff;object-fit:contain;padding:6px;box-shadow:0 6px 20px rgba(0,0,0,.35)}
@@ -181,7 +205,7 @@
 <div class="bot">
   <span>👆 Chạm giữ: dừng</span>
   <span>↔️ Vuốt: tua nhanh</span>
-  <span>👆👆 Chạm 2 lần khung: Khai thác</span>
+  <span>👆👆 Chạm 2 lần khung: nhập tên → Khai thác</span>
   <span>📞 Bấm số: gọi ngay</span>
 </div>
 
@@ -198,6 +222,19 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- Popup nhập tên nhân viên khi đánh dấu khai thác -->
+<div class="kt-ovl" id="ktOvl">
+  <div class="kt-card">
+    <div class="kt-t" id="ktTitle">🔖 Khai thác khách hàng</div>
+    <div class="kt-s">Nhập tên của bạn để ghi nhận người khai thác</div>
+    <div class="kt-row">
+      <input type="text" id="ktName" maxlength="40" placeholder="VD: Ms Hương" enterkeyhint="done">
+      <button class="kt-ok" id="ktOk" type="button">✔ Lưu</button>
+      <button class="kt-no" id="ktNo" type="button">✕</button>
+    </div>
+  </div>
+</div>
 
 <script>
 /* ===== FIREBASE — trùng app quản lý & script nhúng ===== */
@@ -350,8 +387,24 @@ function build(){
   restyle();
   x = window.innerWidth;
 }
+/* Lấy tên nhân viên từ giá trị khai thác (hỗ trợ dữ liệu cũ = true, chuỗi, hoặc {name,at}) */
+function ktName(v){
+  if(!v) return "";
+  if(v===true) return "";
+  if(typeof v==="string") return v;
+  if(typeof v==="object" && v.name) return String(v.name);
+  return "";
+}
 function restyle(){
-  track.querySelectorAll(".chip").forEach(c=>c.classList.toggle("kt", !!ktMap[c.dataset.id]));
+  track.querySelectorAll(".chip").forEach(c=>{
+    const v = ktMap[c.dataset.id];
+    c.classList.toggle("kt", !!v);
+    const nt = c.querySelector(".nt");
+    if(nt){
+      const n = ktName(v);
+      nt.textContent = n ? (n+" - KHAI THÁC") : "KHAI THÁC";
+    }
+  });
 }
 /* Áp cài đặt từ admin: màu nền cả trang, màu chữ, cỡ chữ (nhân 1.25 cho mobile dễ đọc) */
 function applyStyle(){
@@ -434,6 +487,7 @@ function endDrag(){
   if(!drag) return;
   const wasMoved=drag.moved, v=drag.v*SWIPE_SENS;
   drag=null;
+  if(typeof ktTarget!=="undefined" && ktTarget!=null) return;  // popup đang mở → giữ nguyên trạng thái dừng
   clearTimeout(resumeTimer);
   if(wasMoved && Math.abs(v)>60){
     momV = v * FLICK_MULT;                          // vuốt mạnh → trôi tiếp mượt theo quán tính rồi mới tự chạy lại
@@ -455,24 +509,98 @@ stage.addEventListener("wheel", e=>{
   track.style.transform="translate3d("+x+"px,-50%,0)";
 },{passive:false});
 
-/* Double-tap khung → Khai thác (dblclick hoạt động cả trên mobile hiện đại) */
-track.addEventListener("dblclick", e=>{
-  const c=e.target.closest(".chip");
-  if(!c||!db) return;
-  db.ref(FB_PATH+"/khaithac/"+c.dataset.id).transaction(v=>v?null:true);
+/* ================================================================
+   KHAI THÁC — double-tap khung khách hàng:
+   - Chưa khai thác → mở popup nhập tên nhân viên → Lưu {name, at}
+   - Đã khai thác   → gỡ đánh dấu ngay, trở về ban đầu
+   Cấu trúc dữ liệu trùng với script nhúng → đồng bộ 2 chiều
+================================================================ */
+const LS_STAFF = "ideco_tickerKH_staffName";   // nhớ tên nhập lần trước
+const ktOvl=$("ktOvl"), ktInp=$("ktName"), ktTitle=$("ktTitle");
+let ktTarget=null;                              // id khách hàng đang mở popup
+
+function openKtPop(id, chip){
+  ktTarget=id;
+  const tenEl = chip.querySelector(".ten");
+  ktTitle.textContent = "🔖 Khai thác: " + (tenEl ? tenEl.textContent : ("KH #"+id));
+  try{ ktInp.value = localStorage.getItem(LS_STAFF) || ""; }catch(e){ ktInp.value=""; }
+  ktOvl.classList.add("show");
+  clearTimeout(resumeTimer);
+  setPaused(true); momV=0;                      // dừng ticker khi đang nhập tên
+  setTimeout(()=>{ ktInp.focus(); ktInp.select(); }, 60);
+}
+function closeKtPop(){
+  ktTarget=null;
+  ktOvl.classList.remove("show");
+  ktInp.blur();
+  clearTimeout(resumeTimer);
+  resumeTimer=setTimeout(()=>setPaused(false), RESUME_MS);   // chạy lại sau khi đóng
+}
+function saveKtPop(){
+  const name=(ktInp.value||"").trim();
+  if(!name){ ktInp.focus(); toast("⚠️ Vui lòng nhập tên của bạn"); return; }
+  try{ localStorage.setItem(LS_STAFF, name); }catch(e){}
+  if(db && ktTarget!=null){
+    db.ref(FB_PATH+"/khaithac/"+ktTarget).set({
+      name: name,
+      at: firebase.database.ServerValue.TIMESTAMP
+    });
+    toast("✔ "+name+" - Khai thác");
+  }
   if(navigator.vibrate) navigator.vibrate(35);
+  closeKtPop();
+}
+$("ktOk").addEventListener("click", saveKtPop);
+$("ktNo").addEventListener("click", closeKtPop);
+ktInp.addEventListener("keydown", e=>{
+  if(e.key==="Enter"){ e.preventDefault(); saveKtPop(); }
+  if(e.key==="Escape"){ e.preventDefault(); closeKtPop(); }
 });
-/* Fallback double-tap thủ công cho trình duyệt không bắn dblclick từ touch */
-let lastTap={t:0,id:null};
-track.addEventListener("pointerup", e=>{
-  const c=e.target.closest(".chip");
-  if(!c||e.target.closest("a.tel")) return;
-  const now=Date.now(), id=c.dataset.id;
-  if(now-lastTap.t<380 && lastTap.id===id && db){
-    db.ref(FB_PATH+"/khaithac/"+id).transaction(v=>v?null:true);
+ktOvl.addEventListener("pointerdown", e=>{     // chạm nền tối bên ngoài thẻ → đóng
+  if(e.target===ktOvl) closeKtPop();
+});
+
+function chipActivate(chip){
+  if(!db) return;
+  const id=chip.dataset.id;
+  if(ktMap[id]){
+    db.ref(FB_PATH+"/khaithac/"+id).remove();   // gỡ khai thác → về ban đầu
     if(navigator.vibrate) navigator.vibrate(35);
-    lastTap={t:0,id:null};
-  } else lastTap={t:now,id:id};
+    toast("↩️ Đã bỏ khai thác");
+  }else{
+    openKtPop(id, chip);                         // nhập tên nhân viên
+  }
+}
+/* Double-tap: vì stage.setPointerCapture() chuyển hướng mọi pointerup/click
+   về stage (không đi qua .chip), phải lắng nghe trên STAGE và tự hit-test
+   khung khách hàng bằng elementFromPoint tại toạ độ chạm */
+function chipAtPoint(cx, cy){
+  const el = document.elementFromPoint(cx, cy);
+  if(!el) return null;
+  if(el.closest && el.closest("a.tel")) return null;   // bấm nút gọi → bỏ qua
+  return el.closest ? el.closest(".chip") : null;
+}
+let lastTap={t:0,id:null,x:0,y:0}, lastActivate=0;
+stage.addEventListener("pointerup", e=>{
+  if(drag && drag.moved){ lastTap={t:0,id:null,x:0,y:0}; return; }  // vừa vuốt → không tính tap
+  const c = chipAtPoint(e.clientX, e.clientY);
+  if(!c) return;
+  const now=Date.now(), id=c.dataset.id;
+  const near = Math.abs(e.clientX-lastTap.x)<40 && Math.abs(e.clientY-lastTap.y)<40;
+  if(now-lastTap.t<420 && lastTap.id===id && near){
+    lastTap={t:0,id:null,x:0,y:0};
+    if(now-lastActivate<500) return;
+    lastActivate=now;
+    chipActivate(c);
+  } else lastTap={t:now,id:id,x:e.clientX,y:e.clientY};
+});
+/* dblclick native làm đường dự phòng (một số trình duyệt không capture mouse) */
+stage.addEventListener("dblclick", e=>{
+  const c = chipAtPoint(e.clientX, e.clientY);
+  if(!c) return;
+  if(Date.now()-lastActivate<500) return;               // fallback vừa xử lý rồi
+  lastActivate=Date.now();
+  chipActivate(c);
 });
 
 /* ================================================================
