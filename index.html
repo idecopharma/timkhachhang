@@ -104,6 +104,37 @@
   @keyframes shk{20%{transform:translateX(-8px)}40%{transform:translateX(7px)}60%{transform:translateX(-5px)}80%{transform:translateX(4px)}}
   .btn-lock{border:none;background:rgba(255,255,255,.12);color:rgba(255,255,255,.75);border-radius:7px;
             width:26px;height:22px;font-size:11px;cursor:pointer;flex:none}
+  .btn-srch{border:none;background:rgba(255,176,46,.25);color:#ffd58a;border-radius:7px;
+            height:22px;padding:0 8px;font-size:10.5px;font-weight:800;cursor:pointer;flex:none;
+            font-family:inherit;letter-spacing:.02em}
+  .btn-srch.on{background:#ffb02e;color:#3a2600}
+
+  /* ===== Chế độ LỌC KH đã lưu theo tên NV (trên track) ===== */
+  .fhead{display:inline-flex;align-items:center;gap:8px;background:#ffb02e;color:#3a2600;
+         font-weight:900;border-radius:14px;padding:.45em .9em;letter-spacing:.02em;font-size:.85em}
+  .fbtn{display:inline-flex;align-items:center;border-radius:12px;cursor:pointer;
+        font-weight:800;padding:.45em .8em;user-select:none;-webkit-user-select:none;font-size:.75em}
+  .fxls{background:#1d8a55;color:#fff;box-shadow:0 3px 12px rgba(29,138,85,.4)}
+  .fexit{background:rgba(255,255,255,.16);color:#fff;border:1.5px solid rgba(255,255,255,.4)}
+  .fempty{opacity:.75;font-weight:600;font-style:italic;font-size:.8em}
+
+  /* ===== Popup TÌM KIẾM tên nhân viên ===== */
+  .sch-card{width:100%;max-width:440px;background:#0e3a42;border:2px solid #ffb02e;border-radius:20px;
+            padding:18px 16px;box-shadow:0 12px 40px rgba(0,0,0,.6);animation:cardUp .22s cubic-bezier(.2,.9,.3,1.2)}
+  .sch-card .sch-t{color:#ffd58a;font-size:14px;font-weight:800;letter-spacing:.03em;margin-bottom:4px}
+  .sch-card .sch-s{color:rgba(255,255,255,.6);font-size:11.5px;margin-bottom:12px;line-height:1.5}
+  .sch-card input{width:100%;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.35);
+                  border-radius:11px;color:#fff;font-size:16px;font-weight:600;padding:11px 12px;
+                  outline:none;font-family:inherit;margin-bottom:11px}
+  .sch-card input:focus{border-color:#ffb02e;background:rgba(255,255,255,.16)}
+  .sch-card input::placeholder{color:rgba(255,255,255,.4);font-weight:400}
+  .sch-card .sch-row{display:flex;gap:9px}
+  .sch-card .sch-row button{flex:1;border:none;border-radius:11px;cursor:pointer;font-family:inherit;
+                  font-weight:800;font-size:13.5px;padding:12px 8px;line-height:1.2}
+  .sch-card .sch-row button:active{transform:scale(.95)}
+  .sch-card .sch-loc{background:#ffb02e;color:#3a2600}
+  .sch-card .sch-xls{background:linear-gradient(150deg,#1d8a55,#136b41);color:#fff}
+  .sch-card .sch-no{background:rgba(255,255,255,.14);color:#fff;flex:0 0 52px !important}
 
   /* ===== Popup nhập tên nhân viên khai thác ===== */
   .kt-ovl{position:fixed;inset:0;z-index:180;display:none;align-items:flex-end;justify-content:center;
@@ -217,6 +248,7 @@
     <span class="dot" id="fbDot"></span>
     <span id="cAll">0 KH</span>
     <span class="kt" id="cKT">✔ 0</span>
+    <button class="btn-srch" id="btnSearch" title="Tìm KH đã lưu theo tên nhân viên">🔍 Tìm</button>
     <button class="btn-lock" id="btnLogout" title="Đăng xuất">🔒</button>
   </div>
 </div>
@@ -237,6 +269,22 @@
   <span>👆👆 Khung trắng: nhập tên → 🟡 Khai thác</span>
   <span>👆👆 Khung vàng: 🔴 Kết nối được / ⚪ Từ chối</span>
   <span>📞 Bấm số: gọi ngay</span>
+  <span>🔍 Tìm: gom KH đã lưu theo tên NV + xuất Excel</span>
+</div>
+
+<!-- Popup TÌM KIẾM khách hàng đã lưu theo tên nhân viên -->
+<div class="kt-ovl" id="schOvl">
+  <div class="sch-card">
+    <div class="sch-t">🔍 Tìm danh sách KH đã lưu theo tên nhân viên</div>
+    <div class="sch-s">Gõ không dấu vẫn tìm được (vd: "huong" → Ms Hương).
+      Trong danh sách lọc, chạm 2 lần vào khung để Hoàn tác / đổi trạng thái.</div>
+    <input type="text" id="schName" maxlength="40" placeholder="Tên nhân viên (VD: Ms Hương)" enterkeyhint="search">
+    <div class="sch-row">
+      <button class="sch-loc" id="schLoc" type="button">🔎 Lọc DS đã lưu</button>
+      <button class="sch-xls" id="schXls" type="button">📊 Xuất Excel</button>
+      <button class="sch-no" id="schNo" type="button">✕</button>
+    </div>
+  </div>
 </div>
 
 <!-- ===== Panel ứng dụng 2: Quản lý khách hàng hiện tại (TBKHDATHANG-WEB) ===== -->
@@ -305,6 +353,15 @@ function toast(m){ const t=$("toast"); t.textContent=m; t.classList.add("show");
 let db=null, data=[], ktMap={}, ctrl={}, dataRev=0, builtKey="";
 let x=0, raf=null, paused=false, lastTs=0;
 const track=$("track"), stage=$("stage");
+
+/* ===== ★ v5.0 — Trạng thái LỌC KH đã lưu theo tên nhân viên ===== */
+let filterOn=false, filterName="", filterNorm="", ktRev=0;
+/* Bỏ dấu tiếng Việt + thường hoá để so khớp tên NV (gõ "huong" ra "Ms Hương") */
+function normVN(s){
+  s = String(s==null?"":s).toLowerCase();
+  try{ s = s.normalize("NFD").replace(/[\u0300-\u036f]/g,""); }catch(e){}
+  return s.replace(/\u0111/g,"d").replace(/\s+/g," ").trim();
+}
 
 /* ===== Thông số tinh chỉnh cảm ứng & tốc độ (chỉnh ở đây nếu cần) =====
    SWIPE_SENS : độ nhạy khi kéo tay (>1 = vuốt 1 đoạn ngắn nhưng lướt xa hơn, "nhanh tay" hơn)
@@ -375,6 +432,8 @@ try{
   });
   db.ref(FB_PATH+"/khaithac").on("value", s=>{
     ktMap = s.val()||{};
+    ktRev++;
+    if(filterOn) build();                 /* ★ hoàn tác → khung tự rời danh sách lọc */
     updateCounts(); restyle();
   });
   db.ref(FB_PATH+"/control").on("value", s=>{
@@ -419,25 +478,55 @@ function updateStandby(){
 }
 
 /* ===== Dựng dải khung khách hàng (2 tầng thông tin, tối ưu mobile) ===== */
+function chipHTML(r, i){
+  const tel = (r.dienthoai||"").trim();
+  return '<span class="chip" data-id="'+esc(r.id||i)+'">'
+    + '<span class="row1"><span class="stt">'+(i+1)+'</span>'
+    + (r.daidien?'<span class="dd">🧑‍💼 '+esc(r.daidien)+'</span>':'')
+    + '<span class="ten">'+esc(r.ten||"(chưa có tên)")+'</span>'
+    + '<span class="nt">KHAI THÁC</span></span>'
+    + '<span class="row2">'
+    + (tel?'<a class="tel" href="'+telHref(tel)+'">📞 '+esc(tel)+'</a>':'')
+    + (r.diachi?'<span class="dc">📍 '+esc(r.diachi)+'</span>':'')
+    + '</span></span>';
+}
+/* KH thuộc bộ lọc? (đã khai thác + tên NV khớp, không phân biệt dấu) */
+function inFilter(id){
+  const v = ktMap[id];
+  if(!v || !filterNorm) return false;
+  return normVN(ktName(v)).indexOf(filterNorm) !== -1;
+}
 function build(){
-  const key = dataRev+"|"+(ctrl.prefix||"")+"|"+(ctrl.updatedAt||0);
+  const key = dataRev+"|"+(ctrl.prefix||"")+"|"+(ctrl.updatedAt||0)
+            + "|" + (filterOn ? ("F:"+filterNorm+":"+ktRev) : "");
   if(key===builtKey) return;
   builtKey=key;
   let html="", lastF=null;
+  if(filterOn){
+    /* ===== CHẾ ĐỘ LỌC: gom KH đã lưu của nhân viên, đứng yên để xem ===== */
+    let n=0, body="";
+    data.forEach((r,i)=>{
+      r = r||{};
+      if(!inFilter(r.id||i)) return;
+      n++;
+      body += chipHTML(r, i);
+    });
+    html += '<span class="fhead">🔎 '+esc(filterName)+' — '+n+' KH đã lưu</span>'
+          + '<span class="fbtn fxls" data-act="xls">📊 Xuất Excel</span>'
+          + '<span class="fbtn fexit" data-act="exit">✕ Thoát lọc</span>';
+    html += n ? body
+              : '<span class="fempty">Chưa có khách hàng nào được "'+esc(filterName)+'" bấm lưu.</span>';
+    track.innerHTML=html;
+    restyle();
+    x = 16;                                 /* đứng yên bên trái, vuốt để xem hết */
+    track.style.transform="translate3d("+x+"px,-50%,0)";
+    return;
+  }
   if(ctrl.prefix) html+='<span class="pfx">'+esc(ctrl.prefix)+'</span>';
   html += data.map((r,i)=>{
     let sep="";
     if(r.f && r.f!==lastF){ lastF=r.f; sep='<span class="fsep">📁 '+esc(r.f)+'</span>'; }
-    const tel = (r.dienthoai||"").trim();
-    return sep+'<span class="chip" data-id="'+esc(r.id||i)+'">'
-      + '<span class="row1"><span class="stt">'+(i+1)+'</span>'
-      + (r.daidien?'<span class="dd">🧑‍💼 '+esc(r.daidien)+'</span>':'')
-      + '<span class="ten">'+esc(r.ten||"(chưa có tên)")+'</span>'
-      + '<span class="nt">KHAI THÁC</span></span>'
-      + '<span class="row2">'
-      + (tel?'<a class="tel" href="'+telHref(tel)+'">📞 '+esc(tel)+'</a>':'')
-      + (r.diachi?'<span class="dc">📍 '+esc(r.diachi)+'</span>':'')
-      + '</span></span>';
+    return sep+chipHTML(r, i);
   }).join("");
   track.innerHTML=html;
   restyle();
@@ -495,7 +584,7 @@ function loopFn(ts){
       resumeTimer=setTimeout(()=>setPaused(false), RESUME_MS);
     }
     track.style.transform="translate3d("+x+"px,-50%,0)";
-  } else if(!paused){
+  } else if(!paused && !filterOn){
     x -= (ctrl.speed||110)*SPEED_BOOST*dt;
     if(x < -track.scrollWidth) x = window.innerWidth;
     track.style.transform="translate3d("+x+"px,-50%,0)";
@@ -672,6 +761,159 @@ stOvl.addEventListener("pointerdown", e=>{     // chạm nền tối bên ngoài
   if(e.target===stOvl) closeKtPop();
 });
 
+/* ================================================================
+   ★ v5.0 — TÌM KIẾM KH ĐÃ LƯU THEO TÊN NHÂN VIÊN + XUẤT EXCEL
+   - Nút 🔍 Tìm (thanh trên) → popup nhập tên NV
+   - "Lọc DS đã lưu": GOM toàn bộ KH nhân viên đó đã bấm lưu thành
+     danh sách TĨNH trên màn hình chạy (vuốt để xem, double-tap để
+     Hoàn tác / đổi trạng thái — hoàn tác xong khung tự biến mất)
+   - "Xuất Excel": tải .xlsx (SheetJS từ CDN, lỗi mạng → fallback CSV)
+================================================================ */
+const schOvl=$("schOvl"), schInp=$("schName");
+
+function openSchPop(){
+  try{ schInp.value = filterName || localStorage.getItem(LS_STAFF) || ""; }
+  catch(e){ schInp.value = filterName || ""; }
+  ktOvl.classList.remove("show"); stOvl.classList.remove("show");
+  schOvl.classList.add("show");
+  clearTimeout(resumeTimer);
+  setPaused(true); momV=0;
+  setTimeout(()=>{ schInp.focus(); schInp.select(); }, 60);
+}
+function closeSchPop(){
+  schOvl.classList.remove("show");
+  schInp.blur();
+  $("btnSearch").classList.toggle("on", filterOn);
+  clearTimeout(resumeTimer);
+  if(!filterOn) resumeTimer=setTimeout(()=>setPaused(false), RESUME_MS);
+  else setPaused(false);                        // filter tự đứng yên, không cần cờ paused
+}
+$("btnSearch").addEventListener("click", ()=>{
+  if(schOvl.classList.contains("show")) closeSchPop();
+  else openSchPop();
+});
+schOvl.addEventListener("pointerdown", e=>{ if(e.target===schOvl) closeSchPop(); });
+
+function enterFilter(name){
+  filterName=name; filterNorm=normVN(name);
+  if(!filterNorm){ schInp.focus(); toast("⚠️ Vui lòng nhập tên nhân viên"); return false; }
+  if(!(ctrl.running && data.length)){ toast("📡 Ticker đang tắt — chưa có danh sách để lọc"); return false; }
+  filterOn=true; builtKey=""; momV=0;
+  build();
+  $("btnSearch").classList.add("on");
+  if(navigator.vibrate) navigator.vibrate(25);
+  return true;
+}
+function exitFilter(){
+  filterOn=false; filterName=""; filterNorm="";
+  builtKey="";
+  $("btnSearch").classList.remove("on");
+  build();                                      // build thường tự đặt x = mép phải
+  track.style.transform="translate3d("+x+"px,-50%,0)";
+  setPaused(false);
+  toast("↩️ Đã thoát chế độ lọc");
+}
+$("schLoc").addEventListener("click", ()=>{ if(enterFilter((schInp.value||"").trim())) closeSchPop(); });
+$("schNo").addEventListener("click", closeSchPop);
+schInp.addEventListener("keydown", e=>{
+  if(e.key==="Enter"){ e.preventDefault(); if(enterFilter((schInp.value||"").trim())) closeSchPop(); }
+  if(e.key==="Escape"){ e.preventDefault(); closeSchPop(); }
+});
+
+/* ---------- Gom dữ liệu KH đã lưu của một nhân viên ---------- */
+function collectSaved(nameNorm){
+  const rows=[];
+  data.forEach((r,i)=>{
+    r = r||{};
+    const id = r.id||i, v = ktMap[id];
+    if(!v) return;
+    const nv = ktName(v);
+    if(nameNorm && normVN(nv).indexOf(nameNorm)===-1) return;
+    const st = ktStatus(v);
+    rows.push({
+      stt: i+1,
+      ten: r.ten||"", dt: r.dienthoai||"", dc: r.diachi||"",
+      dd: r.daidien||"", f: r.f||"", nv: nv,
+      st: st==="ok" ? "Kết nối được" : st==="tuchoi" ? "Từ chối" : "Đã khai thác",
+      at: (v && typeof v==="object" && v.at) ? fmtTimeVN(v.at) : ""
+    });
+  });
+  return rows;
+}
+function fmtTimeVN(ms){
+  try{
+    const d=new Date(ms), p=n=>(n<10?"0":"")+n;
+    return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear()+" "+p(d.getHours())+":"+p(d.getMinutes());
+  }catch(e){ return ""; }
+}
+function fileStamp(){
+  const d=new Date(), p=n=>(n<10?"0":"")+n;
+  return d.getFullYear()+""+p(d.getMonth()+1)+""+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes());
+}
+function safeFileName(s){
+  return normVN(s).replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"") || "nhanvien";
+}
+
+/* ---------- Xuất Excel (SheetJS) — fallback CSV nếu CDN bị chặn ---------- */
+const XLS_HEADERS = ["STT gốc","Tên khách hàng","Điện thoại","Địa chỉ","Người đại diện",
+                     "Nguồn file","Nhân viên khai thác","Trạng thái","Thời gian khai thác"];
+const rowToArr = r => [r.stt, r.ten, r.dt, r.dc, r.dd, r.f, r.nv, r.st, r.at];
+
+function downloadBlob(blob, fname){
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=fname;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1200);
+}
+function exportCSVFallback(rows, name){
+  const lines=[XLS_HEADERS.join(",")];
+  rows.forEach(r=>lines.push(rowToArr(r).map(c=>{
+    c=String(c==null?"":c);
+    return /[",\n]/.test(c) ? '"'+c.replace(/"/g,'""')+'"' : c;
+  }).join(",")));
+  /* BOM UTF-8 để Excel hiển thị đúng tiếng Việt */
+  downloadBlob(new Blob(["\uFEFF"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"}),
+               "KHAITHAC_"+safeFileName(name)+"_"+fileStamp()+".csv");
+}
+let _xlsxLoading=null;
+function ensureXLSX(){
+  if(window.XLSX) return Promise.resolve();
+  if(_xlsxLoading) return _xlsxLoading;
+  _xlsxLoading = new Promise((res,rej)=>{
+    const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    s.onload = ()=> window.XLSX ? res() : rej(new Error("XLSX không khả dụng"));
+    s.onerror = ()=>{ _xlsxLoading=null; rej(new Error("Không tải được SheetJS")); };
+    document.head.appendChild(s);
+  });
+  return _xlsxLoading;
+}
+function exportExcel(name){
+  const nameNorm = normVN(name);
+  if(!nameNorm){ openSchPop(); return; }
+  const rows = collectSaved(nameNorm);
+  if(!rows.length){ toast('⚠️ Chưa có KH nào được "'+name+'" bấm lưu'); return; }
+  toast("⏳ Đang tạo file Excel…");
+  ensureXLSX().then(()=>{
+    const aoa=[XLS_HEADERS]; rows.forEach(r=>aoa.push(rowToArr(r)));
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws["!cols"]=[{wch:8},{wch:34},{wch:14},{wch:44},{wch:22},{wch:18},{wch:20},{wch:16},{wch:18}];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "KH da luu");
+    XLSX.writeFile(wb, "KHAITHAC_"+safeFileName(name)+"_"+fileStamp()+".xlsx");
+    toast("📊 Đã xuất Excel: "+rows.length+" khách hàng");
+    if(navigator.vibrate) navigator.vibrate([25,40,25]);
+  }).catch(()=>{
+    exportCSVFallback(rows, name);          /* CDN bị chặn → CSV vẫn mở tốt bằng Excel */
+    toast("📊 Đã xuất CSV (mở bằng Excel): "+rows.length+" KH");
+  });
+}
+$("schXls").addEventListener("click", ()=>{
+  const name=(schInp.value||"").trim();
+  if(!name){ schInp.focus(); toast("⚠️ Vui lòng nhập tên nhân viên"); return; }
+  exportExcel(name);
+});
+
 function chipActivate(chip){
   if(!db) return;
   const id=chip.dataset.id;
@@ -693,6 +935,18 @@ function chipAtPoint(cx, cy){
 let lastTap={t:0,id:null,x:0,y:0}, lastActivate=0;
 stage.addEventListener("pointerup", e=>{
   if(drag && drag.moved){ lastTap={t:0,id:null,x:0,y:0}; return; }  // vừa vuốt → không tính tap
+  /* ★ v5.0: nút trên thanh khi đang lọc — 1 lần chạm là kích hoạt
+     (hit-test bằng elementFromPoint vì stage đã setPointerCapture) */
+  if(filterOn){
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const fb = el && el.closest ? el.closest(".fbtn") : null;
+    if(fb){
+      if(navigator.vibrate) navigator.vibrate(20);
+      if(fb.getAttribute("data-act")==="exit") exitFilter();
+      else exportExcel(filterName);
+      return;
+    }
+  }
   const c = chipAtPoint(e.clientX, e.clientY);
   if(!c) return;
   const now=Date.now(), id=c.dataset.id;
