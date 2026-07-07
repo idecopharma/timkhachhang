@@ -235,6 +235,7 @@
     </div>
     <button class="go" id="pwGo" type="button">ĐĂNG NHẬP</button>
     <div class="pw-err" id="pwErr"></div>
+    <div style="margin-top:10px;font-size:10.5px;color:rgba(255,255,255,.35);letter-spacing:.5px">phiên bản đăng nhập v5.2-ios</div>
   </div>
 </div>
 
@@ -389,22 +390,37 @@ function pwHash(s){                       // hash FNV-1a đơn giản, đủ cho
   return h.toString(36);
 }
 function isAuthed(){ try{ return localStorage.getItem(AUTH_KEY) === pwHash(PW); }catch(e){ return false; } }
-/* Chuẩn hoá input: fix iOS Safari tự viết hoa, chèn dấu cách cuối,
-   ký tự vô hình (zero-width) và dạng Unicode khác nhau giữa bàn phím */
-function pwClean(s){
-  return String(s || "")
-    .normalize("NFC")                                   // thống nhất dạng Unicode
-    .replace(/[\u200B-\u200D\uFEFF\u00A0\u2060]/g, "")  // xoá ký tự vô hình / NBSP
-    .trim()                                             // xoá khoảng trắng đầu/cuối
-    .toLowerCase();                                     // chống iOS tự viết hoa chữ đầu
+/* ===== ĐĂNG NHẬP CHỐNG LỖI iOS SAFARI (v5.2) =====
+   So khớp NHIỀU phương án chuẩn hoá: gốc, trim, NFC, NFD,
+   xoá toàn bộ khoảng trắng + ký tự vô hình, chữ thường.
+   Chỉ cần 1 phương án khớp là đăng nhập thành công. */
+function pwCandidates(raw){
+  const s0 = String(raw || "");
+  const noInvis = s => s.replace(/[\u0000-\u001F\u200B-\u200F\uFEFF\u00A0\u2060\u180E\u202A-\u202E]/g, "");
+  const noSpace = s => s.replace(/\s+/g, "");
+  const set = new Set();
+  [s0, s0.trim(), s0.normalize("NFC"), s0.normalize("NFD"),
+   noInvis(s0), noSpace(noInvis(s0)),
+   noSpace(noInvis(s0.normalize("NFC")))
+  ].forEach(v => { set.add(v); set.add(v.toLowerCase()); });
+  return [...set];
+}
+function pwMatch(raw){
+  const target = pwHash(PW);
+  return pwCandidates(raw).some(v => v === PW || pwHash(v) === target);
 }
 function doLogin(){
-  const v = pwClean($("pwInput").value);
-  if(pwHash(v) === pwHash(PW)){
+  const raw = $("pwInput").value;
+  if(pwMatch(raw)){
     try{ localStorage.setItem(AUTH_KEY, pwHash(PW)); }catch(e){}
     unlock();
   }else{
-    $("pwErr").textContent = "❌ Mật khẩu không đúng";
+    /* Chẩn đoán: cho biết máy thực sự nhận được gì để bắt bệnh iOS */
+    const raw = String($("pwInput").value || "");
+    const odd = [...raw].filter(ch => ch.charCodeAt(0) > 126 || ch.charCodeAt(0) < 32)
+                        .map(ch => "U+" + ch.charCodeAt(0).toString(16).toUpperCase());
+    let diag = ` (nhận ${raw.length} ký tự` + (odd.length ? `, ký tự lạ: ${odd.join(",")}` : "") + `)`;
+    $("pwErr").textContent = "❌ Mật khẩu không đúng" + diag;
     $("pwInput").value = "";
     const c=$("lockCard"); c.classList.remove("shake"); void c.offsetWidth; c.classList.add("shake");
     if(navigator.vibrate) navigator.vibrate([40,60,40]);
