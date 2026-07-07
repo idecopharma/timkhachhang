@@ -229,7 +229,8 @@
     <p class="lk-slogan">✦ HÃY QUYẾT TÂM PHÁT TRIỂN KHÁCH HÀNG MỖI NGÀY – TUẦN – THÁNG VỚI TINH THẦN IDECO: <b>"MÌNH KHÔNG TIN LÀ MÌNH KHÔNG MỞ ĐƯỢC THÀNH CÔNG KHÁCH HÀNG"</b> ✦</p>
     <p>Nhập mật khẩu để truy cập</p>
     <div class="pw-row">
-      <input type="password" id="pwInput" placeholder="Mật khẩu" autocomplete="current-password" enterkeyhint="go">
+      <input type="password" id="pwInput" placeholder="Mật khẩu" autocomplete="current-password" enterkeyhint="go"
+             autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text">
       <button class="eye" id="pwEye" type="button" aria-label="Hiện/ẩn mật khẩu">👁</button>
     </div>
     <button class="go" id="pwGo" type="button">ĐĂNG NHẬP</button>
@@ -388,8 +389,17 @@ function pwHash(s){                       // hash FNV-1a đơn giản, đủ cho
   return h.toString(36);
 }
 function isAuthed(){ try{ return localStorage.getItem(AUTH_KEY) === pwHash(PW); }catch(e){ return false; } }
+/* Chuẩn hoá input: fix iOS Safari tự viết hoa, chèn dấu cách cuối,
+   ký tự vô hình (zero-width) và dạng Unicode khác nhau giữa bàn phím */
+function pwClean(s){
+  return String(s || "")
+    .normalize("NFC")                                   // thống nhất dạng Unicode
+    .replace(/[\u200B-\u200D\uFEFF\u00A0\u2060]/g, "")  // xoá ký tự vô hình / NBSP
+    .trim()                                             // xoá khoảng trắng đầu/cuối
+    .toLowerCase();                                     // chống iOS tự viết hoa chữ đầu
+}
 function doLogin(){
-  const v = $("pwInput").value;
+  const v = pwClean($("pwInput").value);
   if(pwHash(v) === pwHash(PW)){
     try{ localStorage.setItem(AUTH_KEY, pwHash(PW)); }catch(e){}
     unlock();
