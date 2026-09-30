@@ -228,6 +228,14 @@
   .app3-load .sp{width:34px;height:34px;border:3.5px solid #a855f7;border-top-color:transparent;border-radius:50%;animation:spn .8s linear infinite}
   body.tab3 .app3{bottom:calc(52px + var(--safe-b))}
   body.tab3 .tabbar{background:rgba(20,20,25,.92)}
+
+  .top{flex-wrap:wrap;gap:7px}.top .cnt{font-size:10px}
+  .sch-card .sch-row{flex-wrap:wrap}.sch-card .sch-row button{flex:1 1 120px}
+  .rg-list{max-height:45vh;overflow:auto;display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;touch-action:pan-y}
+  .rg-list button{border:1px solid #7dfbd4;border-radius:10px;background:#164e55;color:#fff;padding:12px;font:inherit}
+  .rg-list button.sel{background:#ffb02e;color:#3a2600}
+  .kt-ovl{overflow:auto;max-height:100dvh}.sch-card,.st-card{max-height:90dvh;overflow:auto}
+  .chip.ok .nt{cursor:pointer}.report-link{display:block;background:#e6372d;color:white;text-align:center;padding:14px;border-radius:12px;font-weight:800;text-decoration:none;margin:12px 0}
 </style>
 </head>
 <body class="standby-on">
@@ -262,7 +270,7 @@
     <span class="dot" id="fbDot"></span>
     <span id="cAll">0 KH</span>
     <span class="kt" id="cKT">✔ 0</span>
-    <button class="btn-srch" id="btnSearch" title="Tìm KH đã lưu theo tên nhân viên">🔍 Tìm</button>
+    <button class="btn-srch" id="btnSearch" title="Tìm số điện thoại hoặc KH đã lưu theo nhân viên">🔍 Tìm</button><button id="btnRegion" class="btn-srch" type="button">🗺 Khu vực</button>
     <button class="btn-lock" id="btnLogout" title="Đăng xuất">🔒</button>
   </div>
 </div>
@@ -283,17 +291,18 @@
   <span>👆👆 Khung trắng: nhập tên → 🟡 Khai thác</span>
   <span>👆👆 Khung vàng: 🔴 Kết nối được / ⚪ Từ chối</span>
   <span>📞 Bấm số: gọi ngay</span>
-  <span>🔍 Tìm: gom KH đã lưu theo tên NV + xuất Excel</span>
+  <span>🔍 Tìm SĐT / tên NV · 🗺 Lọc khu vực · 👆👆 Khung đỏ: báo cáo GD</span>
 </div>
 
 <!-- Popup TÌM KIẾM khách hàng đã lưu theo tên nhân viên -->
 <div class="kt-ovl" id="schOvl">
   <div class="sch-card">
-    <div class="sch-t">🔍 Tìm danh sách KH đã lưu theo tên nhân viên</div>
+    <div class="sch-t">🔍 Tìm khách hàng / nhân viên</div>
     <div class="sch-s">Gõ không dấu vẫn tìm được (vd: "huong" → Ms Hương).
       Trong danh sách lọc, chạm 2 lần vào khung để Hoàn tác / đổi trạng thái.</div>
-    <input type="text" id="schName" maxlength="40" placeholder="Tên nhân viên (VD: Ms Hương)" enterkeyhint="search">
+    <input type="text" id="schName" maxlength="40" placeholder="Tên nhân viên hoặc số điện thoại" enterkeyhint="search">
     <div class="sch-row">
+      <button class="sch-loc" id="schPhone" type="button">📞 Tìm SĐT</button>
       <button class="sch-loc" id="schLoc" type="button">🔎 Lọc DS đã lưu</button>
       <button class="sch-xls" id="schXls" type="button">📊 Xuất Excel</button>
       <button class="sch-no" id="schNo" type="button">✕</button>
@@ -320,6 +329,15 @@
   <button id="tabKhaiBao"><span class="ic">📋</span>Khai báo GD</button>
 </div>
 
+<div class="kt-ovl" id="rgOvl"><div class="sch-card">
+<div class="sch-t">🗺 Lọc khu vực</div><div class="sch-s">Chọn tỉnh/thành theo địa chỉ khách hàng. Bộ lọc riêng cho máy này.</div>
+<div id="rgList" class="rg-list"></div><div class="sch-row"><button id="rgClear" class="sch-loc">↺ Tất cả khu vực</button><button id="rgClose" class="sch-no">✕</button></div>
+</div></div>
+<div class="kt-ovl" id="reportOvl"><div class="st-card">
+<div class="st-t" id="reportTitle"></div><div class="st-s">Mở trang báo cáo giao dịch để khai báo kết nối khách hàng.</div>
+<a class="report-link" href="https://duocphamideco.github.io/baocaokh/" target="_blank" rel="noopener">📋 Mở báo cáo giao dịch</a>
+<div class="st-sub"><button id="reportStatus">Đổi trạng thái / Hoàn tác</button><button id="reportClose">Đóng</button></div>
+</div></div>
 <div class="toast" id="toast"></div>
 
 <!-- Popup nhập tên nhân viên khi đánh dấu khai thác -->
@@ -377,12 +395,48 @@ const track=$("track"), stage=$("stage");
 
 /* ===== ★ v5.0 — Trạng thái LỌC KH đã lưu theo tên nhân viên ===== */
 let filterOn=false, filterName="", filterNorm="", ktRev=0;
+let phoneFindOn=false, phoneFindQuery="", regionLocal="", regionAdminOff=false;
 /* Bỏ dấu tiếng Việt + thường hoá để so khớp tên NV (gõ "huong" ra "Ms Hương") */
 function normVN(s){
   s = String(s==null?"":s).toLowerCase();
   try{ s = s.normalize("NFD").replace(/[\u0300-\u036f]/g,""); }catch(e){}
   return s.replace(/\u0111/g,"d").replace(/\s+/g," ").trim();
 }
+
+  var PROV_ALIAS = {
+    "tphcm":"TP.HCM","tp hcm":"TP.HCM","ho chi minh":"TP.HCM","hcm":"TP.HCM","sai gon":"TP.HCM","saigon":"TP.HCM",
+    "ha noi":"Hà Nội","hanoi":"Hà Nội","hn":"Hà Nội","da nang":"Đà Nẵng","dn":"Đà Nẵng"
+  };
+  function titleCaseVi(s){ return String(s).toLowerCase().split(/\s+/).map(function(w){ return w ? w.charAt(0).toUpperCase()+w.slice(1) : w; }).join(" "); }
+  function extractRegion(addr){
+    var s = String(addr==null?"":addr).normalize ? String(addr==null?"":addr).normalize("NFC").trim() : String(addr==null?"":addr).trim();
+    if (!s) return "";
+    var parts = s.split(",").map(function(x){ return x.trim(); }).filter(Boolean);
+    var tail = parts[parts.length-1] || s;
+    var isDistrict = function(t){ return /^(q|p|quan|phuong)\.?\s*\d+[a-z]?$/i.test(normVN(t)); };
+    if (isDistrict(tail) && parts.length >= 2) tail = parts[parts.length-2];
+    tail = tail.replace(/^(tp\.?|thanh pho|tinh|t\.)\s*/i,"").trim();
+    var key = normVN(tail);
+    for (var k in PROV_ALIAS){ if (key === k || key.indexOf(k) !== -1) return PROV_ALIAS[k]; }
+    return titleCaseVi(tail);
+  }
+  function inRegion(r){
+    var rg = activeRegion();
+    if (!rg) return true;
+    return extractRegion(r.diachi) === rg;
+  }
+
+
+function activeRegion(){ return regionLocal || (regionAdminOff ? "" : (ctrl.region || "")); }
+function phoneKey(s){ let d=String(s||"").replace(/\D/g,""); if(d.startsWith("0084")) d=d.slice(2); if(d.startsWith("84") && d.length>=10) d="0"+d.slice(2); return d; }
+function staticMode(){ return filterOn || phoneFindOn; }
+function clampTrack(){ const min=Math.min(16,window.innerWidth-track.scrollWidth-16); x=Math.max(min,Math.min(16,x)); }
+function visibleRow(r,i){ if(!inRegion(r)) return false; if(phoneFindOn) return phoneKey(r.dienthoai)===phoneKey(phoneFindQuery); return !filterOn || inFilter(r.id??i); }
+function refreshView(){ builtKey=""; momV=0; build(); updateStandby(); $("btnSearch").classList.toggle("on",staticMode()); $("btnRegion").classList.toggle("on",!!activeRegion()); if(data.length && (ctrl.running || staticMode())) start(); }
+function enterPhoneFind(raw){ if(phoneKey(raw).length<8){ toast("⚠️ Nhập đầy đủ số điện thoại"); return false; } if(!data.some(r=>phoneKey(r.dienthoai)===phoneKey(raw))){ toast("Không tìm thấy khách có SĐT này"); return false; } phoneFindOn=true; phoneFindQuery=raw; filterOn=false; filterName=""; filterNorm=""; refreshView(); return true; }
+function renderRegions(){ const counts={}; data.forEach(r=>{const rg=extractRegion(r.diachi); if(rg) counts[rg]=(counts[rg]||0)+1;}); $("rgList").innerHTML=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]||a.localeCompare(b,"vi")).map(rg=>'<button class="'+(rg===activeRegion()?'sel':'')+'" data-rg="'+esc(rg)+'">'+esc(rg)+' · '+counts[rg]+'</button>').join("") || "Chưa có địa chỉ để lọc."; }
+function closeRegion(){ $("rgOvl").classList.remove("show"); resumeTimer=setTimeout(()=>setPaused(false),RESUME_MS); }
+function openReport(id,chip){ ktTarget=id; $("reportTitle").textContent="✔ "+chipTen(chip)+" — Kết nối được"; $("reportOvl").classList.add("show"); clearTimeout(resumeTimer); momV=0; setPaused(true); }
 
 /* ===== Thông số tinh chỉnh cảm ứng & tốc độ (chỉnh ở đây nếu cần) =====
    SWIPE_SENS : độ nhạy khi kéo tay (>1 = vuốt 1 đoạn ngắn nhưng lướt xa hơn, "nhanh tay" hơn)
@@ -472,7 +526,7 @@ try{
     data = Array.isArray(v)?v:(v?Object.keys(v).map(k=>v[k]):[]);
     dataRev++;
     updateCounts();
-    if(ctrl.running) build();
+    if(ctrl.running || staticMode()) build();
     updateStandby();
   });
   db.ref(FB_PATH+"/khaithac").on("value", s=>{
@@ -482,9 +536,12 @@ try{
     updateCounts(); restyle();
   });
   db.ref(FB_PATH+"/control").on("value", s=>{
+    const previousRegion=ctrl.region||"";
     ctrl = s.val()||{};
+    if((ctrl.region||"")!==previousRegion) regionAdminOff=false;
+    $("btnRegion").classList.toggle("on",!!activeRegion());
     applyStyle();
-    if(ctrl.running && data.length){ build(); start(); }
+    if((ctrl.running || staticMode()) && data.length){ build(); start(); }
     else stop();
     updateStandby();
   });
@@ -509,7 +566,7 @@ function updateCounts(){
   $("cKT").textContent = "🟡" + kt + " 🔴" + ok + " ⚪" + tc;
 }
 function updateStandby(){
-  const on = !(ctrl.running && data.length);
+  const on = !((ctrl.running || staticMode()) && data.length);
   document.body.classList.toggle("standby-on", on);
   if(on){
     if(!data.length){
@@ -542,40 +599,19 @@ function inFilter(id){
   return normVN(ktName(v)).indexOf(filterNorm) !== -1;
 }
 function build(){
-  const key = dataRev+"|"+(ctrl.prefix||"")+"|"+(ctrl.updatedAt||0)
-            + "|" + (filterOn ? ("F:"+filterNorm+":"+ktRev) : "");
-  if(key===builtKey) return;
-  builtKey=key;
-  let html="", lastF=null;
-  if(filterOn){
-    /* ===== CHẾ ĐỘ LỌC: gom KH đã lưu của nhân viên, đứng yên để xem ===== */
-    let n=0, body="";
-    data.forEach((r,i)=>{
-      r = r||{};
-      if(!inFilter(r.id||i)) return;
-      n++;
-      body += chipHTML(r, i);
-    });
-    html += '<span class="fhead">🔎 '+esc(filterName)+' — '+n+' KH đã lưu</span>'
-          + '<span class="fbtn fxls" data-act="xls">📊 Xuất Excel</span>'
-          + '<span class="fbtn fexit" data-act="exit">✕ Thoát lọc</span>';
-    html += n ? body
-              : '<span class="fempty">Chưa có khách hàng nào được "'+esc(filterName)+'" bấm lưu.</span>';
-    track.innerHTML=html;
-    restyle();
-    x = 16;                                 /* đứng yên bên trái, vuốt để xem hết */
-    track.style.transform="translate3d("+x+"px,-50%,0)";
-    return;
-  }
-  if(ctrl.prefix) html+='<span class="pfx">'+esc(ctrl.prefix)+'</span>';
-  html += data.map((r,i)=>{
-    let sep="";
-    if(r.f && r.f!==lastF){ lastF=r.f; sep='<span class="fsep">📁 '+esc(r.f)+'</span>'; }
-    return sep+chipHTML(r, i);
-  }).join("");
-  track.innerHTML=html;
-  restyle();
-  x = window.innerWidth;
+  const key=[dataRev,ctrl.prefix,ctrl.updatedAt,filterOn,filterNorm,ktRev,phoneFindOn,phoneFindQuery,activeRegion()].join("|");
+  if(key===builtKey) return; builtKey=key;
+  const oldX=x, hadContent=!!track.querySelector(".chip");
+  const rows=data.map((r,i)=>({r:r||{},i})).filter(({r,i})=>visibleRow(r,i));
+  let html="";
+  if(staticMode()) html='<span class="fhead">🔎 '+esc(phoneFindOn?phoneFindQuery:filterName)+' — '+rows.length+' KH</span>'+(filterOn?'<span class="fbtn fxls" data-act="xls">📊 Xuất Excel</span>':'')+'<span class="fbtn fexit" data-act="exit">✕ Thoát tìm</span>';
+  else if(ctrl.prefix) html='<span class="pfx">'+esc(ctrl.prefix)+'</span>';
+  if(activeRegion()) html+='<span class="fhead">🗺 '+esc(activeRegion())+' — '+rows.length+' KH</span><span class="fbtn fexit" data-act="rgexit">✕ Bỏ lọc khu vực</span>';
+  html+=rows.map(({r,i})=>chipHTML(r,i)).join("") || '<span class="fempty">Không có khách hàng phù hợp. Hãy bỏ lọc khu vực hoặc đổi từ khóa.</span>';
+  track.innerHTML=html; restyle();
+  x=staticMode()?(hadContent?oldX:16):window.innerWidth;
+  if(staticMode()) clampTrack();
+  track.style.transform="translate3d("+x+"px,-50%,0)";
 }
 /* Lấy tên nhân viên từ giá trị khai thác (hỗ trợ dữ liệu cũ = true, chuỗi, hoặc {name,at}) */
 function ktName(v){
@@ -620,7 +656,7 @@ function loopFn(ts){
   if(momV){
     /* Đang trôi theo quán tính sau khi thả tay: giảm tốc mượt dần rồi tự chạy lại */
     x += momV*dt;
-    const min=-track.scrollWidth, max=window.innerWidth;
+    const min=staticMode()?Math.min(16,window.innerWidth-track.scrollWidth-16):-track.scrollWidth, max=staticMode()?16:window.innerWidth;
     if(x<min){x=min; momV=0;} if(x>max){x=max; momV=0;}
     momV *= Math.pow(FRICTION, dt);
     if(Math.abs(momV) < 15){
@@ -629,7 +665,7 @@ function loopFn(ts){
       resumeTimer=setTimeout(()=>setPaused(false), RESUME_MS);
     }
     track.style.transform="translate3d("+x+"px,-50%,0)";
-  } else if(!paused && !filterOn){
+  } else if(!paused && !staticMode()){
     x -= (ctrl.speed||110)*SPEED_BOOST*dt;
     if(x < -track.scrollWidth) x = window.innerWidth;
     track.style.transform="translate3d("+x+"px,-50%,0)";
@@ -670,7 +706,7 @@ window.addEventListener("pointermove", e=>{
   if(Math.abs(dx)>6) drag.moved=true;
   if(drag.moved){
     x=drag.t0+dx;
-    const min=-track.scrollWidth, max=window.innerWidth;
+    const min=staticMode()?Math.min(16,window.innerWidth-track.scrollWidth-16):-track.scrollWidth, max=staticMode()?16:window.innerWidth;
     if(x<min)x=min; if(x>max)x=max;
     track.style.transform="translate3d("+x+"px,-50%,0)";
   }
@@ -684,8 +720,9 @@ window.addEventListener("pointermove", e=>{
 function endDrag(){
   if(!drag) return;
   const wasMoved=drag.moved, v=drag.v*SWIPE_SENS;
+  if(wasMoved) lastTap={t:0,id:null,x:0,y:0};
   drag=null;
-  if(typeof ktTarget!=="undefined" && ktTarget!=null) return;  // popup đang mở → giữ nguyên trạng thái dừng
+  if(document.querySelector(".kt-ovl.show")) return;  // popup đang mở → giữ nguyên trạng thái dừng
   clearTimeout(resumeTimer);
   if(wasMoved && Math.abs(v)>60){
     momV = v * FLICK_MULT;                          // vuốt mạnh → trôi tiếp mượt theo quán tính rồi mới tự chạy lại
@@ -702,8 +739,8 @@ stage.addEventListener("wheel", e=>{
   let d=Math.abs(e.deltaY)>=Math.abs(e.deltaX)?e.deltaY:e.deltaX;
   if(e.deltaMode===1)d*=33;
   x-=d*2.5;
-  const min=-track.scrollWidth, max=window.innerWidth;
-  if(x<min)x=max; if(x>max)x=min+10;
+  const min=staticMode()?Math.min(16,window.innerWidth-track.scrollWidth-16):-track.scrollWidth, max=staticMode()?16:window.innerWidth;
+  if(staticMode()) clampTrack(); else { if(x<min)x=max; if(x>max)x=min+10; }
   track.style.transform="translate3d("+x+"px,-50%,0)";
 },{passive:false});
 
@@ -748,6 +785,7 @@ function openStPop(id, chip){
   setPaused(true); momV=0;                      // dừng ticker khi đang chọn
 }
 function closeKtPop(){
+  $("reportOvl").classList.remove("show");
   ktTarget=null;
   ktOvl.classList.remove("show");
   stOvl.classList.remove("show");
@@ -773,7 +811,8 @@ function saveKtPop(){
 function setKtStatus(status){
   if(!db || ktTarget==null){ closeKtPop(); return; }
   const v = ktMap[ktTarget];
-  const obj = { status: status, statusAt: firebase.database.ServerValue.TIMESTAMP };
+  if(ktStatus(v)==="ok" && status!=="ok" && !confirm("Khách đã kết nối. Xác nhận chuyển sang từ chối?")) return;
+  const obj = { ...(v && typeof v==="object"?v:{}), status: status, statusAt: firebase.database.ServerValue.TIMESTAMP };
   const n = ktName(v); if(n) obj.name = n;
   if(v && typeof v==="object" && v.at) obj.at = v.at;
   db.ref(FB_PATH+"/khaithac/"+ktTarget).set(obj);
@@ -795,6 +834,7 @@ $("stOk").addEventListener("click", ()=>setKtStatus("ok"));
 $("stTc").addEventListener("click", ()=>setKtStatus("tuchoi"));
 $("stUndo").addEventListener("click", ()=>{
   if(db && ktTarget!=null){
+    if(ktStatus(ktMap[ktTarget])==="ok" && !confirm("Khách đã kết nối. Xác nhận hoàn tác?")) return;
     db.ref(FB_PATH+"/khaithac/"+ktTarget).remove();
     toast("↺ Đã hoàn tác — KH trở về chưa khai thác");
     if(navigator.vibrate) navigator.vibrate(35);
@@ -828,9 +868,9 @@ function openSchPop(){
 function closeSchPop(){
   schOvl.classList.remove("show");
   schInp.blur();
-  $("btnSearch").classList.toggle("on", filterOn);
+  $("btnSearch").classList.toggle("on", staticMode());
   clearTimeout(resumeTimer);
-  if(!filterOn) resumeTimer=setTimeout(()=>setPaused(false), RESUME_MS);
+  if(!staticMode()) resumeTimer=setTimeout(()=>setPaused(false), RESUME_MS);
   else setPaused(false);                        // filter tự đứng yên, không cần cờ paused
 }
 $("btnSearch").addEventListener("click", ()=>{
@@ -842,26 +882,29 @@ schOvl.addEventListener("pointerdown", e=>{ if(e.target===schOvl) closeSchPop();
 function enterFilter(name){
   filterName=name; filterNorm=normVN(name);
   if(!filterNorm){ schInp.focus(); toast("⚠️ Vui lòng nhập tên nhân viên"); return false; }
-  if(!(ctrl.running && data.length)){ toast("📡 Ticker đang tắt — chưa có danh sách để lọc"); return false; }
-  filterOn=true; builtKey=""; momV=0;
-  build();
+  if(!data.length){ toast("Chưa có danh sách để lọc"); return false; }
+  phoneFindOn=false; phoneFindQuery="";
+  filterOn=true; x=16; builtKey=""; momV=0;
+  refreshView();
   $("btnSearch").classList.add("on");
   if(navigator.vibrate) navigator.vibrate(25);
   return true;
 }
 function exitFilter(){
-  filterOn=false; filterName=""; filterNorm="";
+  filterOn=false; filterName=""; filterNorm=""; phoneFindOn=false; phoneFindQuery="";
   builtKey="";
   $("btnSearch").classList.remove("on");
   build();                                      // build thường tự đặt x = mép phải
   track.style.transform="translate3d("+x+"px,-50%,0)";
   setPaused(false);
+  updateStandby();
+  if(!ctrl.running) stop();
   toast("↩️ Đã thoát chế độ lọc");
 }
 $("schLoc").addEventListener("click", ()=>{ if(enterFilter((schInp.value||"").trim())) closeSchPop(); });
 $("schNo").addEventListener("click", closeSchPop);
 schInp.addEventListener("keydown", e=>{
-  if(e.key==="Enter"){ e.preventDefault(); if(enterFilter((schInp.value||"").trim())) closeSchPop(); }
+  if(e.key==="Enter"){ e.preventDefault(); const q=schInp.value.trim(); if((/^[+\d\s().-]{8,}$/.test(q)?enterPhoneFind(q):enterFilter(q))) closeSchPop(); }
   if(e.key==="Escape"){ e.preventDefault(); closeSchPop(); }
 });
 
@@ -962,7 +1005,8 @@ $("schXls").addEventListener("click", ()=>{
 function chipActivate(chip){
   if(!db) return;
   const id=chip.dataset.id;
-  if(ktMap[id]){
+  if(ktStatus(ktMap[id])==="ok"){ openReport(id,chip); }
+  else if(ktMap[id]){
     openStPop(id, chip);                         // đã khai thác (vàng/đỏ/xám) → chọn kết quả liên hệ
   }else{
     openKtPop(id, chip);                         // chưa khai thác → nhập tên nhân viên
@@ -982,12 +1026,13 @@ stage.addEventListener("pointerup", e=>{
   if(drag && drag.moved){ lastTap={t:0,id:null,x:0,y:0}; return; }  // vừa vuốt → không tính tap
   /* ★ v5.0: nút trên thanh khi đang lọc — 1 lần chạm là kích hoạt
      (hit-test bằng elementFromPoint vì stage đã setPointerCapture) */
-  if(filterOn){
+  {
     const el = document.elementFromPoint(e.clientX, e.clientY);
     const fb = el && el.closest ? el.closest(".fbtn") : null;
     if(fb){
       if(navigator.vibrate) navigator.vibrate(20);
       if(fb.getAttribute("data-act")==="exit") exitFilter();
+      else if(fb.getAttribute("data-act")==="rgexit") { regionLocal=""; regionAdminOff=true; refreshView(); }
       else exportExcel(filterName);
       return;
     }
@@ -1012,6 +1057,16 @@ stage.addEventListener("dblclick", e=>{
   chipActivate(c);
 });
 
+
+$("schPhone").addEventListener("click",()=>{ x=16; if(enterPhoneFind(schInp.value.trim())) closeSchPop(); });
+$("btnRegion").addEventListener("click",()=>{ closeSchPop(); closeKtPop(); clearTimeout(resumeTimer); momV=0; setPaused(true); renderRegions(); $("rgOvl").classList.add("show"); });
+$("rgList").addEventListener("click",e=>{ const b=e.target.closest("[data-rg]"); if(!b)return; regionLocal=regionLocal===b.dataset.rg?"":b.dataset.rg; regionAdminOff=false; x=16; refreshView(); renderRegions(); });
+$("rgClear").addEventListener("click",()=>{regionLocal="";regionAdminOff=true; refreshView();renderRegions();});
+$("rgClose").addEventListener("click",closeRegion);
+$("rgOvl").addEventListener("pointerdown",e=>{if(e.target===$("rgOvl"))closeRegion();});
+$("reportClose").addEventListener("click",closeKtPop);
+$("reportStatus").addEventListener("click",()=>{const id=ktTarget; $("reportOvl").classList.remove("show"); openStPop(id,Array.from(track.querySelectorAll(".chip")).find(c=>c.dataset.id===id));});
+$("reportOvl").addEventListener("pointerdown",e=>{if(e.target===$("reportOvl"))closeKtPop();});
 /* ================================================================
    ĐIỀU HƯỚNG 2 TAB — Bảng chạy | Quản lý khách hàng hiện tại
    - Iframe cách ly hoàn toàn (Firebase app riêng, CSS riêng, không xung đột)
