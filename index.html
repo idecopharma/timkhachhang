@@ -30,23 +30,27 @@
   body.paused .paused-flag{display:inline-block}
 
   /* ===== Sân khấu chữ chạy (toàn màn hình) ===== */
-  .stage{flex:1;position:relative;overflow:hidden;display:flex;align-items:center;contain:layout style paint;touch-action:none}
-  .track{position:absolute;top:50%;left:0;display:flex;gap:7vw;align-items:center;white-space:nowrap;
-         font-weight:600;will-change:transform;transform:translate3d(100vw,-50%,0);line-height:1.45;
-         font-size:22px;color:#7dfbd4}
-  .chip{display:inline-flex;flex-direction:column;align-items:flex-start;gap:.22em;
+  /* ★ v6.0 — CHẠY DỌC: từng khung KH đi từ đầu màn hình xuống cuối màn hình */
+  .stage{flex:1;position:relative;overflow:hidden;contain:layout style paint;touch-action:none;
+         -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 4%,#000 96%,transparent 100%);
+                 mask-image:linear-gradient(to bottom,transparent 0,#000 4%,#000 96%,transparent 100%)}
+  .track{position:absolute;top:0;left:0;right:0;display:flex;flex-direction:column;gap:14px;align-items:stretch;
+         white-space:normal;padding:0 12px;font-weight:600;will-change:transform;transform:translate3d(0,100vh,0);
+         line-height:1.45;font-size:22px;color:#7dfbd4}
+  .track.rev{flex-direction:column-reverse}
+  .chip{display:flex;width:100%;flex-direction:column;align-items:flex-start;gap:.22em;
         border:2.5px solid rgba(255,255,255,.5);border-radius:18px;padding:.6em 1em;
         background:rgba(255,255,255,.07);box-shadow:0 4px 18px rgba(0,0,0,.25);
         transition:border-color .25s, background .25s}
-  .chip .row1{display:flex;align-items:center;gap:.55em}
+  .chip .row1{display:flex;align-items:center;gap:.55em;flex-wrap:wrap}
   .chip .stt{opacity:.55;font-size:.68em;font-family:ui-monospace,Consolas,monospace;font-weight:700}
-  .chip .ten{font-weight:800;font-size:1.06em;color:#fff}
+  .chip .ten{font-weight:800;font-size:1.06em;color:#fff;overflow-wrap:anywhere}
   .chip .dd{font-size:.78em;opacity:.9}
-  .chip .row2{display:flex;align-items:center;gap:.7em;font-size:.85em}
+  .chip .row2{display:flex;align-items:center;gap:.5em .7em;font-size:.85em;flex-wrap:wrap}
   .chip .tel{display:inline-flex;align-items:center;gap:.35em;color:inherit;text-decoration:none;
              background:rgba(30,142,90,.85);color:#fff;border-radius:.6em;padding:.22em .65em;font-weight:800}
   .chip .tel:active{transform:scale(.95)}
-  .chip .dc{font-size:.78em;opacity:.85;max-width:72vw;overflow:hidden;text-overflow:ellipsis}
+  .chip .dc{font-size:.78em;opacity:.85;overflow-wrap:anywhere}
   .chip.kt{border-color:#ffb02e;background:rgba(255,176,46,.22)}
   .chip.kt .ten{color:#ffd58a}
   .chip .nt{display:none;background:#ffb02e;color:#3a2600;font-size:.6em;font-weight:800;
@@ -61,7 +65,8 @@
   .chip.tc .ten{color:#c3ccd1;text-decoration:line-through;text-decoration-thickness:2px}
   .chip.tc .nt{display:inline-block;background:#6e7a81;color:#fff}
   .fsep{font-weight:800;opacity:.85;font-size:.9em}
-  .pfx{font-weight:800;font-size:.95em}
+  .pfx{font-weight:800;font-size:.95em;text-align:center;padding:4px 0}
+  .fbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 
   /* ===== Màn hình chờ (ticker tắt / chưa có dữ liệu) ===== */
   .standby{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
@@ -195,6 +200,8 @@
 
   /* ===== Thanh TAB đáy (điều hướng 2 ứng dụng trên mobile) ===== */
   .bot{padding-bottom:9px}                       /* safe-area chuyển xuống tabbar */
+  .bot{flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+  .bot::-webkit-scrollbar{display:none}
   .tabbar{flex:none;display:flex;background:rgba(0,0,0,.45);backdrop-filter:blur(10px);
           border-top:1px solid rgba(255,255,255,.12);padding:6px 8px calc(7px + var(--safe-b));
           gap:8px;z-index:150;position:relative}
@@ -254,7 +261,7 @@
     </div>
     <button class="go" id="pwGo" type="button">ĐĂNG NHẬP</button>
     <div class="pw-err" id="pwErr"></div>
-    <div style="margin-top:10px;font-size:10.5px;color:rgba(255,255,255,.35);letter-spacing:.5px">phiên bản đăng nhập v5.2-ios</div>
+    <div style="margin-top:10px;font-size:10.5px;color:rgba(255,255,255,.35);letter-spacing:.5px">phiên bản đăng nhập v6.0-doc</div>
     <div style="margin-top:6px;font-size:11.5px;font-weight:700;color:rgba(255,215,120,.85);letter-spacing:.6px">✦ Ứng dụng được phát triển bởi MTRIET ✦</div>
   </div>
 </div>
@@ -270,7 +277,7 @@
     <span class="dot" id="fbDot"></span>
     <span id="cAll">0 KH</span>
     <span class="kt" id="cKT">✔ 0</span>
-    <button class="btn-srch" id="btnSearch" title="Tìm số điện thoại hoặc KH đã lưu theo nhân viên">🔍 Tìm</button><button id="btnRegion" class="btn-srch" type="button">🗺 Khu vực</button>
+    <button class="btn-srch" id="btnSearch" title="Tìm số điện thoại hoặc KH đã lưu theo nhân viên">🔍 Tìm</button><button id="btnRegion" class="btn-srch" type="button">🗺 Khu vực</button><button id="btnDir" class="btn-srch" type="button" title="Đổi hướng chạy">⬇ Xuống</button>
     <button class="btn-lock" id="btnLogout" title="Đăng xuất">🔒</button>
   </div>
 </div>
@@ -287,7 +294,7 @@
 
 <div class="bot">
   <span>👆 Chạm giữ: dừng</span>
-  <span>↔️ Vuốt: tua nhanh</span>
+  <span>↕️ Vuốt lên/xuống: tua nhanh</span><span>⬇/⬆ Đổi hướng chạy</span>
   <span>👆👆 Khung trắng: nhập tên → 🟡 Khai thác</span>
   <span>👆👆 Khung vàng: 🔴 Kết nối được / ⚪ Từ chối</span>
   <span>📞 Bấm số: gọi ngay</span>
@@ -430,7 +437,7 @@ function normVN(s){
 function activeRegion(){ return regionLocal || (regionAdminOff ? "" : (ctrl.region || "")); }
 function phoneKey(s){ let d=String(s||"").replace(/\D/g,""); if(d.startsWith("0084")) d=d.slice(2); if(d.startsWith("84") && d.length>=10) d="0"+d.slice(2); return d; }
 function staticMode(){ return filterOn || phoneFindOn; }
-function clampTrack(){ const min=Math.min(16,window.innerWidth-track.scrollWidth-16); x=Math.max(min,Math.min(16,x)); }
+function clampTrack(){ const b=bounds(); x=Math.max(b.min,Math.min(b.max,x)); }
 function visibleRow(r,i){ if(!inRegion(r)) return false; if(phoneFindOn) return phoneKey(r.dienthoai)===phoneKey(phoneFindQuery); return !filterOn || inFilter(r.id??i); }
 function refreshView(){ builtKey=""; momV=0; build(); updateStandby(); $("btnSearch").classList.toggle("on",staticMode()); $("btnRegion").classList.toggle("on",!!activeRegion()); if(data.length && (ctrl.running || staticMode())) start(); }
 function enterPhoneFind(raw){ if(phoneKey(raw).length<8){ toast("⚠️ Nhập đầy đủ số điện thoại"); return false; } if(!data.some(r=>phoneKey(r.dienthoai)===phoneKey(raw))){ toast("Không tìm thấy khách có SĐT này"); return false; } phoneFindOn=true; phoneFindQuery=raw; filterOn=false; filterName=""; filterNorm=""; refreshView(); return true; }
@@ -450,6 +457,34 @@ const FRICTION    = 0.12;
 const RESUME_MS   = 900;
 const SPEED_BOOST = 1.25;
 let momV = 0; // vận tốc quán tính hiện tại (px/s), 0 = không trôi
+
+/* ===== ★ v6.0 — CHẠY DỌC (trên xuống / dưới lên) =====
+   VERT_SPEED: hệ số tốc độ khi chạy dọc (chậm hơn chạy ngang để kịp đọc tên)
+   Hướng chạy nhớ riêng từng máy (localStorage) */
+const VERT_SPEED = 0.55;
+const DIR_KEY = "ideco_tickerKH_dir";
+let dirDown = true;
+try{ dirDown = localStorage.getItem(DIR_KEY) !== "up"; }catch(e){}
+function stageH(){ return stage.clientHeight || window.innerHeight; }
+function trackLen(){ return track.scrollHeight; }
+function setPos(){ track.style.transform = "translate3d(0,"+x+"px,0)"; }
+function bounds(){
+  return staticMode() ? {min:Math.min(12, stageH()-trackLen()-12), max:12}
+                      : {min:-trackLen(), max:stageH()};
+}
+/* Vị trí xuất phát: chạy xuống → dải nằm phía trên màn hình; chạy lên → nằm phía dưới */
+function entryPos(){ return dirDown ? -trackLen() : stageH(); }
+function paintDir(){ const b=$("btnDir"); if(b) b.textContent = dirDown ? "⬇ Xuống" : "⬆ Lên"; }
+paintDir();
+$("btnDir").addEventListener("click", ()=>{
+  dirDown = !dirDown;
+  try{ localStorage.setItem(DIR_KEY, dirDown ? "down" : "up"); }catch(e){}
+  paintDir();
+  toast(dirDown ? "⬇ Chạy từ trên xuống dưới" : "⬆ Chạy từ dưới lên trên");
+  if(navigator.vibrate) navigator.vibrate(15);
+  refreshView();
+});
+window.addEventListener("resize", ()=>{ if(staticMode()) clampTrack(); setPos(); });
 
 /* ================================================================
    ĐĂNG NHẬP — mật khẩu ideco@2026, nhớ đăng nhập bằng localStorage
@@ -604,14 +639,16 @@ function build(){
   const oldX=x, hadContent=!!track.querySelector(".chip");
   const rows=data.map((r,i)=>({r:r||{},i})).filter(({r,i})=>visibleRow(r,i));
   let html="";
-  if(staticMode()) html='<span class="fhead">🔎 '+esc(phoneFindOn?phoneFindQuery:filterName)+' — '+rows.length+' KH</span>'+(filterOn?'<span class="fbtn fxls" data-act="xls">📊 Xuất Excel</span>':'')+'<span class="fbtn fexit" data-act="exit">✕ Thoát tìm</span>';
+  if(staticMode()) html='<div class="fbar"><span class="fhead">🔎 '+esc(phoneFindOn?phoneFindQuery:filterName)+' — '+rows.length+' KH</span>'+(filterOn?'<span class="fbtn fxls" data-act="xls">📊 Xuất Excel</span>':'')+'<span class="fbtn fexit" data-act="exit">✕ Thoát tìm</span></div>';
   else if(ctrl.prefix) html='<span class="pfx">'+esc(ctrl.prefix)+'</span>';
-  if(activeRegion()) html+='<span class="fhead">🗺 '+esc(activeRegion())+' — '+rows.length+' KH</span><span class="fbtn fexit" data-act="rgexit">✕ Bỏ lọc khu vực</span>';
+  if(activeRegion()) html+='<div class="fbar"><span class="fhead">🗺 '+esc(activeRegion())+' — '+rows.length+' KH</span><span class="fbtn fexit" data-act="rgexit">✕ Bỏ lọc khu vực</span></div>';
   html+=rows.map(({r,i})=>chipHTML(r,i)).join("") || '<span class="fempty">Không có khách hàng phù hợp. Hãy bỏ lọc khu vực hoặc đổi từ khóa.</span>';
+  /* chạy xuống: đảo thứ tự để KH số 1 xuất hiện đầu tiên ở mép trên */
+  track.classList.toggle("rev", dirDown && !staticMode());
   track.innerHTML=html; restyle();
-  x=staticMode()?(hadContent?oldX:16):window.innerWidth;
+  x=staticMode()?(hadContent?oldX:12):entryPos();
   if(staticMode()) clampTrack();
-  track.style.transform="translate3d("+x+"px,-50%,0)";
+  setPos();
 }
 /* Lấy tên nhân viên từ giá trị khai thác (hỗ trợ dữ liệu cũ = true, chuỗi, hoặc {name,at}) */
 function ktName(v){
@@ -656,7 +693,7 @@ function loopFn(ts){
   if(momV){
     /* Đang trôi theo quán tính sau khi thả tay: giảm tốc mượt dần rồi tự chạy lại */
     x += momV*dt;
-    const min=staticMode()?Math.min(16,window.innerWidth-track.scrollWidth-16):-track.scrollWidth, max=staticMode()?16:window.innerWidth;
+    const _b=bounds(), min=_b.min, max=_b.max;
     if(x<min){x=min; momV=0;} if(x>max){x=max; momV=0;}
     momV *= Math.pow(FRICTION, dt);
     if(Math.abs(momV) < 15){
@@ -664,11 +701,12 @@ function loopFn(ts){
       clearTimeout(resumeTimer);
       resumeTimer=setTimeout(()=>setPaused(false), RESUME_MS);
     }
-    track.style.transform="translate3d("+x+"px,-50%,0)";
+    setPos();
   } else if(!paused && !staticMode()){
-    x -= (ctrl.speed||110)*SPEED_BOOST*dt;
-    if(x < -track.scrollWidth) x = window.innerWidth;
-    track.style.transform="translate3d("+x+"px,-50%,0)";
+    const v=(ctrl.speed||110)*SPEED_BOOST*VERT_SPEED*dt;
+    if(dirDown){ x += v; if(x > stageH()) x = -trackLen(); }
+    else       { x -= v; if(x < -trackLen()) x = stageH(); }
+    setPos();
   }
   raf=requestAnimationFrame(loopFn);
 }
@@ -695,27 +733,27 @@ stage.addEventListener("pointerdown", e=>{
   if(e.target.closest("a.tel")) return;           // bấm nút gọi thì không can thiệp
   try{ stage.setPointerCapture(e.pointerId); }catch(err){}
   momV=0;                                          // chạm tay là huỷ quán tính đang trôi (nếu có)
-  drag={x0:e.clientX,t0:x,moved:false,lastX:e.clientX,lastT:performance.now(),v:0};
+  drag={x0:e.clientY,t0:x,moved:false,lastX:e.clientY,lastT:performance.now(),v:0};
   clearTimeout(resumeTimer);
   setPaused(true);
 });
 window.addEventListener("pointermove", e=>{
   if(!drag) return;
   const now=performance.now();
-  const dx=(e.clientX-drag.x0)*SWIPE_SENS;         // nhân hệ số nhạy → vuốt 1 đoạn ngắn lướt xa/nhanh hơn
+  const dx=(e.clientY-drag.x0)*SWIPE_SENS;         // nhân hệ số nhạy → vuốt 1 đoạn ngắn lướt xa/nhanh hơn
   if(Math.abs(dx)>6) drag.moved=true;
   if(drag.moved){
     x=drag.t0+dx;
-    const min=staticMode()?Math.min(16,window.innerWidth-track.scrollWidth-16):-track.scrollWidth, max=staticMode()?16:window.innerWidth;
+    const _b=bounds(), min=_b.min, max=_b.max;
     if(x<min)x=min; if(x>max)x=max;
-    track.style.transform="translate3d("+x+"px,-50%,0)";
+    setPos();
   }
   const dt=now-drag.lastT;                         // ước lượng vận tốc tay để tạo quán tính khi thả
   if(dt>0){
-    const instV=(e.clientX-drag.lastX)/dt*1000;     // px/giây
+    const instV=(e.clientY-drag.lastX)/dt*1000;     // px/giây
     drag.v = drag.v*0.75 + instV*0.25;              // làm mượt vận tốc (giảm nhiễu cảm ứng)
   }
-  drag.lastX=e.clientX; drag.lastT=now;
+  drag.lastX=e.clientY; drag.lastT=now;
 });
 function endDrag(){
   if(!drag) return;
@@ -738,10 +776,10 @@ stage.addEventListener("wheel", e=>{
   e.preventDefault();
   let d=Math.abs(e.deltaY)>=Math.abs(e.deltaX)?e.deltaY:e.deltaX;
   if(e.deltaMode===1)d*=33;
-  x-=d*2.5;
-  const min=staticMode()?Math.min(16,window.innerWidth-track.scrollWidth-16):-track.scrollWidth, max=staticMode()?16:window.innerWidth;
-  if(staticMode()) clampTrack(); else { if(x<min)x=max; if(x>max)x=min+10; }
-  track.style.transform="translate3d("+x+"px,-50%,0)";
+  x-=d*1.2;
+  const _b=bounds(), min=_b.min, max=_b.max;
+  if(staticMode()) clampTrack(); else { if(x<min)x=max; if(x>max)x=min; }
+  setPos();
 },{passive:false});
 
 /* ================================================================
@@ -895,7 +933,7 @@ function exitFilter(){
   builtKey="";
   $("btnSearch").classList.remove("on");
   build();                                      // build thường tự đặt x = mép phải
-  track.style.transform="translate3d("+x+"px,-50%,0)";
+  setPos();
   setPaused(false);
   updateStandby();
   if(!ctrl.running) stop();
