@@ -242,6 +242,7 @@
   .rg-list button{border:1px solid #7dfbd4;border-radius:10px;background:#164e55;color:#fff;padding:12px;font:inherit}
   .rg-list button.sel{background:#ffb02e;color:#3a2600}
   .kt-ovl{overflow:auto;max-height:100dvh}.sch-card,.st-card{max-height:90dvh;overflow:auto}
+  .rp-info{user-select:text;-webkit-user-select:text;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.6;color:#e6fffa;overflow-wrap:anywhere}.rp-info b{color:#ffd58a}.rp-copy{width:100%;border:1.5px solid rgba(255,255,255,.35);background:rgba(255,255,255,.1);color:#fff;border-radius:12px;padding:11px;font:800 13.5px inherit;font-family:inherit;margin-bottom:10px;cursor:pointer}.rp-copy:active{transform:scale(.97)}.rp-hint{font-size:10.5px;line-height:1.5;color:rgba(255,255,255,.5);text-align:center}
   .chip.ok .nt{cursor:pointer}.report-link{display:block;background:#e6372d;color:white;text-align:center;padding:14px;border-radius:12px;font-weight:800;text-decoration:none;margin:12px 0}
 </style>
 </head>
@@ -261,7 +262,7 @@
     </div>
     <button class="go" id="pwGo" type="button">ĐĂNG NHẬP</button>
     <div class="pw-err" id="pwErr"></div>
-    <div style="margin-top:10px;font-size:10.5px;color:rgba(255,255,255,.35);letter-spacing:.5px">phiên bản đăng nhập v6.0-doc</div>
+    <div style="margin-top:10px;font-size:10.5px;color:rgba(255,255,255,.35);letter-spacing:.5px">phiên bản đăng nhập v6.1-doc</div>
     <div style="margin-top:6px;font-size:11.5px;font-weight:700;color:rgba(255,215,120,.85);letter-spacing:.6px">✦ Ứng dụng được phát triển bởi MTRIET ✦</div>
   </div>
 </div>
@@ -342,7 +343,10 @@
 </div></div>
 <div class="kt-ovl" id="reportOvl"><div class="st-card">
 <div class="st-t" id="reportTitle"></div><div class="st-s">Mở trang báo cáo giao dịch để khai báo kết nối khách hàng.</div>
-<a class="report-link" href="https://duocphamideco.github.io/baocaokh/" target="_blank" rel="noopener">📋 Mở báo cáo giao dịch</a>
+<div class="rp-info" id="reportInfo"></div>
+<a class="report-link" id="reportLink" href="https://duocphamideco.github.io/baocaokh/" target="_blank" rel="noopener">📋 Chép thông tin &amp; mở báo cáo giao dịch</a>
+<button type="button" class="rp-copy" id="reportCopy">📄 Chỉ chép thông tin</button>
+<div class="rp-hint">Trong trang báo cáo: chạm giữ ô <b>"Khai báo nhanh bằng giọng nói / văn bản"</b> → <b>Dán</b> → bổ sung nội dung trao đổi → bấm <b>AI tự điền</b>.</div>
 <div class="st-sub"><button id="reportStatus">Đổi trạng thái / Hoàn tác</button><button id="reportClose">Đóng</button></div>
 </div></div>
 <div class="toast" id="toast"></div>
@@ -443,7 +447,49 @@ function refreshView(){ builtKey=""; momV=0; build(); updateStandby(); $("btnSea
 function enterPhoneFind(raw){ if(phoneKey(raw).length<8){ toast("⚠️ Nhập đầy đủ số điện thoại"); return false; } if(!data.some(r=>phoneKey(r.dienthoai)===phoneKey(raw))){ toast("Không tìm thấy khách có SĐT này"); return false; } phoneFindOn=true; phoneFindQuery=raw; filterOn=false; filterName=""; filterNorm=""; refreshView(); return true; }
 function renderRegions(){ const counts={}; data.forEach(r=>{const rg=extractRegion(r.diachi); if(rg) counts[rg]=(counts[rg]||0)+1;}); $("rgList").innerHTML=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]||a.localeCompare(b,"vi")).map(rg=>'<button class="'+(rg===activeRegion()?'sel':'')+'" data-rg="'+esc(rg)+'">'+esc(rg)+' · '+counts[rg]+'</button>').join("") || "Chưa có địa chỉ để lọc."; }
 function closeRegion(){ $("rgOvl").classList.remove("show"); resumeTimer=setTimeout(()=>setPaused(false),RESUME_MS); }
-function openReport(id,chip){ ktTarget=id; $("reportTitle").textContent="✔ "+chipTen(chip)+" — Kết nối được"; $("reportOvl").classList.add("show"); clearTimeout(resumeTimer); momV=0; setPaused(true); }
+/* ★ v6.1 — Chép thông tin KH vào clipboard để DÁN vào ô "Khai báo nhanh" rồi bấm AI tự điền */
+const REPORT_URL="https://duocphamideco.github.io/baocaokh/";
+function findRowById(id){ for(let i=0;i<data.length;i++){ const r=data[i]||{}; if(String(r.id||i)===String(id)) return r; } return null; }
+function reportText(id){
+  const r=findRowById(id)||{}, nv=ktName(ktMap[id]);
+  const L=[];
+  L.push("Tên doanh nghiệp: "+(String(r.ten||"").trim()||"(chưa có tên)"));
+  if(r.daidien) L.push("Người liên hệ: "+String(r.daidien).trim());
+  if(r.dienthoai) L.push("Số điện thoại: "+String(r.dienthoai).trim());
+  if(r.diachi) L.push("Địa chỉ: "+String(r.diachi).trim());
+  L.push("Kết quả liên hệ: Đã kết nối được khách hàng"+(nv?" (NV khai thác: "+nv+")":"")+".");
+  L.push("Nội dung trao đổi: ");
+  return L.join("\n");
+}
+/* Chép đồng bộ ngay trong thao tác chạm (an toàn cho iOS Safari), rồi thử thêm Clipboard API */
+function copyText(t){
+  let ok=false;
+  try{
+    const ta=document.createElement("textarea");
+    ta.value=t; ta.setAttribute("readonly",""); ta.style.cssText="position:fixed;top:0;left:0;opacity:0;font-size:16px";
+    document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0,t.length);
+    ok=document.execCommand("copy"); ta.remove();
+  }catch(e){}
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).catch(()=>{}); ok=ok||!!navigator.clipboard; }catch(e){}
+  return ok;
+}
+let reportCopyText="";
+function openReport(id,chip){
+  ktTarget=id;
+  reportCopyText=reportText(id);
+  $("reportTitle").textContent="✔ "+chipTen(chip)+" — Kết nối được";
+  $("reportInfo").innerHTML=esc(reportCopyText).replace(/\n/g,"<br>");
+  $("reportOvl").classList.add("show"); clearTimeout(resumeTimer); momV=0; setPaused(true);
+}
+$("reportLink").addEventListener("click",()=>{       // không chặn mặc định → link vẫn mở tab mới
+  const ok=copyText(reportCopyText);
+  toast(ok?"📋 Đã chép — chạm giữ ô Khai báo nhanh → Dán → AI tự điền":"⚠️ Không chép được, hãy dùng nút Chỉ chép thông tin");
+  if(navigator.vibrate) navigator.vibrate(25);
+});
+$("reportCopy").addEventListener("click",()=>{
+  toast(copyText(reportCopyText)?"📋 Đã chép thông tin khách hàng":"⚠️ Trình duyệt chặn chép — hãy chạm giữ để chọn văn bản");
+  if(navigator.vibrate) navigator.vibrate(25);
+});
 
 /* ===== Thông số tinh chỉnh cảm ứng & tốc độ (chỉnh ở đây nếu cần) =====
    SWIPE_SENS : độ nhạy khi kéo tay (>1 = vuốt 1 đoạn ngắn nhưng lướt xa hơn, "nhanh tay" hơn)
