@@ -64,6 +64,8 @@
   .chip.tc{border-color:#8b979e;background:rgba(130,140,146,.28);opacity:.82}
   .chip.tc .ten{color:#c3ccd1;text-decoration:line-through;text-decoration-thickness:2px}
   .chip.tc .nt{display:inline-block;background:#6e7a81;color:#fff}
+   /* IDECO v6.2: khung khách đang dừng để đọc, không đổi màu trạng thái CRM */
+   .chip.reading-selected{outline:3px solid #7dfbd4;outline-offset:-3px;box-shadow:0 0 0 3px rgba(125,251,212,.19),0 8px 25px rgba(0,0,0,.32)}
   .fsep{font-weight:800;opacity:.85;font-size:.9em}
   .pfx{font-weight:800;font-size:.95em;text-align:center;padding:4px 0}
   .fbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -273,7 +275,7 @@
          onerror="this.outerHTML='&lt;span&gt;📣&lt;/span&gt;'">
     <b>IDECO · BẢNG CHẠY KHÁCH HÀNG</b>
   </div>
-  <span class="paused-flag">⏸ TẠM DỪNG</span>
+  <span class="paused-flag" id="readingFlag">⏸ ĐANG ĐỌC · VUỐT ↑↓ ĐỂ CHẠY</span>
   <div class="cnt">
     <span class="dot" id="fbDot"></span>
     <span id="cAll">0 KH</span>
@@ -294,10 +296,10 @@
 </div>
 
 <div class="bot">
-  <span>👆 Chạm giữ: dừng</span>
-  <span>↕️ Vuốt lên/xuống: tua nhanh</span><span>⬇/⬆ Đổi hướng chạy</span>
-  <span>👆👆 Khung trắng: nhập tên → 🟡 Khai thác</span>
-  <span>👆👆 Khung vàng: 🔴 Kết nối được / ⚪ Từ chối</span>
+  <span>👆 Chạm tên KH: dừng để đọc</span>
+  <span>↕️ Vuốt lên/xuống: chạy tiếp & tua</span><span>⬇/⬆ Đổi hướng chạy</span>
+  <span>👆👆 Chạm đúp: lưu khai thác / đổi trạng thái</span>
+  <span>🔴 Kết nối được / ⚪ Từ chối</span>
   <span>📞 Bấm số: gọi ngay</span>
   <span>🔍 Tìm SĐT / tên NV · 🗺 Lọc khu vực · 👆👆 Khung đỏ: báo cáo GD</span>
 </div>
@@ -402,7 +404,23 @@ function toast(m){ const t=$("toast"); t.textContent=m; t.classList.add("show");
 
 let db=null, data=[], ktMap={}, ctrl={}, dataRev=0, builtKey="";
 let x=0, raf=null, paused=false, lastTs=0;
+/* Dừng để đọc là trạng thái CỤC BỘ của thiết bị, không ghi lên Firebase. */
+let readingHold=false, readingChipId=null;
 const track=$("track"), stage=$("stage");
+function setReadingHold(chip){
+  readingHold=!!chip;
+  readingChipId=chip && chip.dataset ? chip.dataset.id : null;
+  track.querySelectorAll(".chip.reading-selected").forEach(el=>el.classList.remove("reading-selected"));
+  if(readingChipId!=null){
+    track.querySelectorAll(".chip").forEach(el=>{
+      if(el.dataset.id===readingChipId) el.classList.add("reading-selected");
+    });
+  }
+  clearTimeout(resumeTimer);
+  if(readingHold) momV=0;
+  setPaused(readingHold);
+}
+
 
 /* ===== ★ v5.0 — Trạng thái LỌC KH đã lưu theo tên nhân viên ===== */
 let filterOn=false, filterName="", filterNorm="", ktRev=0;
@@ -714,7 +732,8 @@ function restyle(){
     const v = ktMap[c.dataset.id], st = ktStatus(v);
     c.classList.toggle("kt", !!v && !st);
     c.classList.toggle("ok", st==="ok");
-    c.classList.toggle("tc", st==="tuchoi");
+     c.classList.toggle("tc", st==="tuchoi");
+     c.classList.toggle("reading-selected", readingHold && c.dataset.id===readingChipId);
     const nt = c.querySelector(".nt");
     if(nt){
       const n = ktName(v);
@@ -765,15 +784,17 @@ function stop(){
   if(raf){ cancelAnimationFrame(raf); raf=null; }
   builtKey="";
   momV=0;
-  clearTimeout(resumeTimer);
-  setPaused(false);
+   clearTimeout(resumeTimer);
+   setReadingHold(null);
+   setPaused(false);
 }
 function setPaused(v){
-  paused=v;
-  document.body.classList.toggle("paused", v);
+   paused=!!v || readingHold;
+   document.body.classList.toggle("paused", paused);
 }
 
-/* ===== Tương tác chạm: giữ = dừng, vuốt = tua (nhạy hơn + có quán tính), double-tap = khai thác ===== */
+/* ===== v6.2: chạm tên KH -> dừng VÔ THỜI HẠN; vuốt lên/xuống -> chạy tiếp.
+   Chạm đúp vào khung vẫn mở luồng khai thác như cũ. ===== */
 let drag=null, resumeTimer=null;
 stage.addEventListener("pointerdown", e=>{
   if(e.target.closest("a.tel")) return;           // bấm nút gọi thì không can thiệp
@@ -806,12 +827,16 @@ function endDrag(){
   const wasMoved=drag.moved, v=drag.v*SWIPE_SENS;
   if(wasMoved) lastTap={t:0,id:null,x:0,y:0};
   drag=null;
-  if(document.querySelector(".kt-ovl.show")) return;  // popup đang mở → giữ nguyên trạng thái dừng
+  if(document.querySelector(".kt-ovl.show")) return;  // popup đang mở → không chạy dưới popup
   clearTimeout(resumeTimer);
-  if(wasMoved && Math.abs(v)>60){
-    momV = v * FLICK_MULT;                          // vuốt mạnh → trôi tiếp mượt theo quán tính rồi mới tự chạy lại
-  }else{
-    resumeTimer=setTimeout(()=>setPaused(false), RESUME_MS);
+  if(wasMoved){
+    /* Một cú vuốt nhẹ lên / xuống là lệnh chạy tiếp, không chờ timeout. */
+    setReadingHold(null);
+    momV=Math.abs(v)>60 ? v*FLICK_MULT : 0;
+    setPaused(false);
+  }else if(!readingHold){
+    /* Chạm ngoài tên KH vẫn giữ hành vi tạm dừng ngắn cũ. */
+    resumeTimer=setTimeout(()=>setPaused(false),RESUME_MS);
   }
 }
 window.addEventListener("pointerup", endDrag);
@@ -1125,6 +1150,11 @@ stage.addEventListener("pointerup", e=>{
   }
   const c = chipAtPoint(e.clientX, e.clientY);
   if(!c) return;
+  /* pointer capture khiến target thành stage, nên dùng elementFromPoint.
+     Chạm đúng tên (hoặc phần trống của thẻ KH) -> giữ nguyên vị trí để đọc. */
+  const hit = document.elementFromPoint(e.clientX,e.clientY);
+  if(hit && hit.closest && !hit.closest(".fbtn,.tel,a") &&
+     (hit.closest(".ten") || hit.closest(".chip"))) setReadingHold(c);
   const now=Date.now(), id=c.dataset.id;
   const near = Math.abs(e.clientX-lastTap.x)<40 && Math.abs(e.clientY-lastTap.y)<40;
   if(now-lastTap.t<420 && lastTap.id===id && near){
